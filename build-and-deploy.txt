@@ -1,0 +1,7 @@
+To build:
+
+> tsc compiler.ts
+
+To run:
+
+Open compiler.html in any web browser to use the compiler interface.
