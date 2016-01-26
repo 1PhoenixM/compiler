@@ -1,7 +1,26 @@
-To build:
+*To build:
+
+1. Install the node.js environment which includes NPM from here: https://nodejs.org/en/download/
+2. In a terminal, run the following, according to http://www.typescriptlang.org/Tutorial to install TypeScript:
+
+> npm install -g typescript
+
+3. In a terminal, assuming git is installed, run this OR use the "Download Zip" button on this repository, and unzip the archive file:
+
+> git clone http://github.com/1PhoenixM/compiler
+
+Then, navigate to the compiler/ folder in the terminal.
+
+> cd compiler
+
+4. Compile the compiler written in TypeScript with the TypeScript compiler... easy! Run:
 
 > tsc compiler.ts
 
-To run:
+The resulting JavaScript is for the client-side, not server-side. Done building!
 
-Open compiler.html in any web browser to use the compiler interface.
+---
+
+*To run:
+
+1. Open the compiler.html file included in the repository in any web browser to use the compiler interface. The built JavaScript will run through this UI.
