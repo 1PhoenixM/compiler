@@ -1,40 +1,41 @@
 document.getElementById('footer').style.color = "blue";
-var keywordTest = "print|while|if";
-var typeTest = "int|string|boolean";
+var keywordTest = new RegExp("print|while|if");
+var typeTest = new RegExp("int|string|boolean");
 
 class Token{
-    kind : string;
-    name : string;
-    lineNumber : int;
-    constructor(public kind, public name, public lineNumber) {
-        this.kind = kind;
-        this.name = name;
-        this.lineNumber = lineNumber;
+    constructor(public tokenKind, public tokenName, public tokenLineNumber) {
+        this.tokenKind = tokenKind;
+        this.tokenName = tokenName;
+        this.tokenLineNumber = tokenLineNumber;
     }
+}
+
+interface TokenArray{
+	[index: number]: Token;
 }
 
 //Step 1
 function lex(sourceCode: string){
   tokens = regexTest(0, sourceCode, []);
   document.getElementById('machine-code').innerHTML = "";
-  for(i = 0; i < tokens.length; i++){
-    document.getElementById('machine-code').innerHTML += tokens[i].name + " is a " + tokens[i].kind + " on line " + tokens[i].lineNumber;
+  for(var i = 0; i < tokens.length; i++){
+    document.getElementById('machine-code').innerHTML += tokens[i].tokenName + " is a " + tokens[i].tokenKind + " on line " + tokens[i].tokenLineNumber;
   }
   //return tokens;
 }
 
 //Step 1 Helper
-function regexTest(charPointer: int, possibleLexeme: string, tokens: array){
+function regexTest(charPointer: number, possibleLexeme: string, tokens: Token[]){
   if(charPointer == possibleLexeme.length){
     return tokens;
   }
-  else if(possibleLexeme.substring(charPointer,possibleLexeme.length).test(keywordTest)){
-    t = new Token("keyword", possibleLexeme, 0);
+  else if(keywordTest.test(possibleLexeme.substring(charPointer,possibleLexeme.length))){
+    var t = new Token("keyword", possibleLexeme, 0);
     tokens.push(t);
     regexTest(charPointer+1, possibleLexeme, tokens);
   }
-  else if(possibleLexeme.substring(charPointer,possibleLexeme.length).test(typeTest)){
-    t = new Token("type", possibleLexeme, 0);
+  else if(typeTest.test(possibleLexeme.substring(charPointer,possibleLexeme.length))){
+    var t = new Token("type", possibleLexeme, 0);
     tokens.push(t);
     regexTest(charPointer+1, possibleLexeme, tokens);
   }
