@@ -28,12 +28,12 @@ function regexTest(charPointer: int, possibleLexeme: string, tokens: array){
   if(charPointer == possibleLexeme.length){
     return tokens;
   }
-  else if(possibleLexeme.test(keywordTest)){
+  else if(possibleLexeme.substring(charPointer,possibleLexeme.length).test(keywordTest)){
     t = new Token("keyword", possibleLexeme, 0);
     tokens.push(t);
     regexTest(charPointer+1, possibleLexeme, tokens);
   }
-  else if(possibleLexeme.test(typeTest)){
+  else if(possibleLexeme.substring(charPointer,possibleLexeme.length).test(typeTest)){
     t = new Token("type", possibleLexeme, 0);
     tokens.push(t);
     regexTest(charPointer+1, possibleLexeme, tokens);
