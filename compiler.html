@@ -32,8 +32,10 @@
 	</head>
 	<body>
 		<h1 id="header">Hello Compiler!</h1>
-		<div class="code" id="source-code">Source Code</div>
-		<button onclick="lex(document.getElementById('source-code'))">Compile</button>
+		<!--div class="code" id="source-code"-->
+			<textarea class="code" id="source-code">Source Code</textarea>
+		<!--/div-->
+		<button onclick="lex(document.getElementById('source-code').value)">Compile</button>
 		<div class="code" id="machine-code">Machine Code</div>
 		<p id="footer">Melissa Iori</p>
 		<script src="compiler.js"></script>

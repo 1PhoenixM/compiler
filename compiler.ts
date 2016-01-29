@@ -16,25 +16,30 @@ interface TokenArray{
 
 //Step 1
 function lex(sourceCode: string){
-  tokens = regexTest(0, sourceCode, []);
-  document.getElementById('machine-code').innerHTML = "";
+  var tokens = regexTest(0, sourceCode, []);
+  //console.log(sourceCode);
+  /*document.getElementById('machine-code').innerHTML = "";
   for(var i = 0; i < tokens.length; i++){
     document.getElementById('machine-code').innerHTML += tokens[i].tokenName + " is a " + tokens[i].tokenKind + " on line " + tokens[i].tokenLineNumber;
-  }
+  }*/
   //return tokens;
 }
 
 //Step 1 Helper
 function regexTest(charPointer: number, possibleLexeme: string, tokens: Token[]){
   if(charPointer == possibleLexeme.length){
-    return tokens;
+     document.getElementById('machine-code').innerHTML = "";
+  	for(var i = 0; i < tokens.length; i++){
+  	  document.getElementById('machine-code').innerHTML += tokens[i].tokenName + " is a " + tokens[i].tokenKind + " on line " + tokens[i].tokenLineNumber;
+ 	 }
+     return tokens;
   }
-  else if(keywordTest.test(possibleLexeme.substring(charPointer,possibleLexeme.length))){
+  else if(keywordTest.test(possibleLexeme.toString().substring(charPointer,possibleLexeme.length))){
     var t = new Token("keyword", possibleLexeme, 0);
     tokens.push(t);
     regexTest(charPointer+1, possibleLexeme, tokens);
   }
-  else if(typeTest.test(possibleLexeme.substring(charPointer,possibleLexeme.length))){
+  else if(typeTest.test(possibleLexeme.toString().substring(charPointer,possibleLexeme.length))){
     var t = new Token("type", possibleLexeme, 0);
     tokens.push(t);
     regexTest(charPointer+1, possibleLexeme, tokens);
