@@ -26,7 +26,7 @@ interface TokenArray{
 
 //Step 1
 function lex(sourceCode: string){
-  var tokens = regexT("", 0, "", sourceCode, []); /*last token not printing*/
+  var tokens = regexT("", 0, "", sourceCode, []); /* issue: printf is recognized as print. throws away string when sees a valid keyword */
   //console.log(sourceCode);
   /*document.getElementById('machine-code').innerHTML = "";
   for(var i = 0; i < tokens.length; i++){
@@ -60,10 +60,19 @@ function lex(sourceCode: string){
   }
 }
 */
+//Keep running total of newline characters for line reporting
 function regexT(c: string, charPointer: number, currentLexeme: string, sourceCode: string, tokens: Token[]){
 	currentLexeme += c;
 	console.log(currentLexeme);
 	if(charPointer == sourceCode.length){
+		if(keywordTest.test(currentLexeme)){
+			var t = new Token("keyword", currentLexeme, 0);
+			tokens.push(t);
+		}
+		else if(typeTest.test(currentLexeme)){
+			var t = new Token("type", currentLexeme, 0);
+			tokens.push(t);
+		}
         	document.getElementById('machine-code').innerHTML = "";
   		for(var i = 0; i < tokens.length; i++){
   		  document.getElementById('machine-code').innerHTML += tokens[i].tokenName + " is a " + tokens[i].tokenKind + " on line " + tokens[i].tokenLineNumber + "<br />"; }

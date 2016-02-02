@@ -12,9 +12,16 @@ var Token = (function () {
     }
     return Token;
 })();
+var SymbolTableEntry = (function () {
+    function SymbolTableEntry(symbol) {
+        this.symbol = symbol;
+        this.symbol = symbol;
+    }
+    return SymbolTableEntry;
+})();
 //Step 1
 function lex(sourceCode) {
-    var tokens = regexT("", 0, "", sourceCode, []);
+    var tokens = regexT("", 0, "", sourceCode, []); /* issue: printf is recognized as print. throws away string when sees a valid keyword */
     //console.log(sourceCode);
     /*document.getElementById('machine-code').innerHTML = "";
     for(var i = 0; i < tokens.length; i++){
@@ -47,10 +54,19 @@ function lex(sourceCode) {
   }
 }
 */
+//Keep running total of newline characters for line reporting
 function regexT(c, charPointer, currentLexeme, sourceCode, tokens) {
     currentLexeme += c;
     console.log(currentLexeme);
     if (charPointer == sourceCode.length) {
+        if (keywordTest.test(currentLexeme)) {
+            var t = new Token("keyword", currentLexeme, 0);
+            tokens.push(t);
+        }
+        else if (typeTest.test(currentLexeme)) {
+            var t = new Token("type", currentLexeme, 0);
+            tokens.push(t);
+        }
         document.getElementById('machine-code').innerHTML = "";
         for (var i = 0; i < tokens.length; i++) {
             document.getElementById('machine-code').innerHTML += tokens[i].tokenName + " is a " + tokens[i].tokenKind + " on line " + tokens[i].tokenLineNumber + "<br />";
