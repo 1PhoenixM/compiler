@@ -10,6 +10,16 @@ class Token{
     }
 }
 
+class SymbolTableEntry{
+    constructor(public symbol){
+	this.symbol = symbol;
+    }
+}
+
+interface SymbolTableArray{
+	[index: number]: SymbolTableEntry;
+}
+
 interface TokenArray{
 	[index: number]: Token;
 }
