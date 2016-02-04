@@ -9,7 +9,11 @@
 			}
 			.code{
 				background-color: #eee;
-				padding: 300px 200px 300px 200px;
+				/*padding: 300px 200px 300px 200px;*/
+				min-height: 600px;
+				min-width: 400px;
+				max-height: 600px;
+				max-width: 400px;
 				position: relative;
 			}
 			#source-code{
@@ -28,6 +32,9 @@
 				padding: 50px 0px 0px 0px;
 				clear: both;
 			}
+			#compileIt{
+				margin: 0px 150px 0px 150px;
+			}
 		</style>
 	</head>
 	<body>
@@ -35,7 +42,7 @@
 		<!--div class="code" id="source-code"-->
 			<textarea class="code" id="source-code">Source Code</textarea>
 		<!--/div-->
-		<button onclick="lex(document.getElementById('source-code').value)">Compile</button>
+		<button id="compileIt" onclick="lex(document.getElementById('source-code').value)">Compile</button>
 		<div class="code" id="machine-code">Machine Code</div>
 		<p id="footer">Melissa Iori</p>
 		<script src="compiler.js"></script>
