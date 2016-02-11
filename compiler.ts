@@ -79,6 +79,87 @@ interface TokenArray{
 }
 
 var testDFA = {'s1' : {'a': 's2', 'b': 's2', 'isAccepting': false }, 's2': {'isAccepting': true} };
+var DFA = {'s1' : {'+': 's2',
+		   '"': 's3',
+		   ' ': 's4',
+		   '$': 's5',
+		   '=': 's6',
+		   '!': 's7',
+		   '{': 's8',
+		   '{': 's9',
+		   'a': 's10',
+		   'b': 's10',
+		   'c': 's10',
+		   'd': 's10',
+		   'e': 's10',
+		   'f': 's10',
+		   'g': 's10',
+		   'h': 's10',
+		   'i': 's10',
+		   'j': 's10',
+		   'k': 's10',
+		   'l': 's10',
+		   'm': 's10',
+		   'n': 's10',
+		   'o': 's10',
+		   'p': 's10',
+		   'q': 's10',
+		   'r': 's10',
+		   's': 's10',
+		   't': 's10',
+		   'u': 's10',
+		   'v': 's10',
+		   'w': 's10',
+		   'x': 's10',
+		   'y': 's10',
+		   'z': 's10',
+		   '0': 's11',
+		   '1': 's11',
+		   '2': 's11',
+		   '3': 's11',
+		   '4': 's11',
+		   '5': 's11',
+		   '6': 's11',
+		   '7': 's11',
+		   '8': 's11',
+		   '9': 's11',
+		   '(': 's12',
+		   ')': 's13'
+		   }
+	    's6' : {'=': 's14'},
+	    's7' : {'=': 's15'},
+	    's10' : {'r': 's16',
+	    	     'a': 's17',
+		     'n': 's18',
+		     'o': 's19',
+		     't': 's20',
+		     'f': 's21',
+		     'h': 's22'},
+	    's16' : {'i': 's23',
+	    	     'u': 's24'},
+	    's23' : {'n': 's25'},
+	    's25' : {'t': 's26'},
+	    's17' : {'l': 's27'},
+	    's27' : {'s': 's28'},
+	    's28' : {'e': 's29'},
+	    's24' : {'e': 's30'},
+	    's18' : {'t': 's31'},
+	    's19' : {'o': 's32'},
+	    's32' : {'l': 's33'},
+	    's33' : {'e': 's34'},
+	    's34' : {'a': 's35'},
+	    's35' : {'n': 's36'},
+	    's20' : {'r': 's37'},
+	    's37' : {'i': 's38'},
+	    's38' : {'n': 's39'},
+	    's39' : {'g': 's40'},
+	    's22' : {'i': 's41'},
+	    's41' : {'l': 's42'},
+	    's42' : {'e': 's43'},
+	    
+	    //Accepting states
+	    's2' : {'accept': 'intop'}
+	    };
 
 //Step 1
 function lex(sourceCode: string){
@@ -158,6 +239,7 @@ function regexT(c: string, charPointer: number, currentLexeme: string, sourceCod
 	/*
 	var nextState = testDFA.s1[sourceCode.charAt(charPointer)];
 	if (testDFA.nextState.isAccepting) {var t = new Token("", "", 0)}
+	if (testDFA.nextState.sourceCode.charAt(charPointer+1) !== null) {//no token yet. wait for longest match}
 	*/
 	/*else if(keywordTest.test(currentLexeme)){
 		var t = new Token("keyword", currentLexeme, 0);
