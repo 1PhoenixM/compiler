@@ -241,6 +241,13 @@ function regexT(c: string, charPointer: number, currentLexeme: string, sourceCod
 	if (testDFA.nextState.isAccepting) {var t = new Token("", "", 0)}
 	if (testDFA.nextState.sourceCode.charAt(charPointer+1) !== null) {//no token yet. wait for longest match}
 	*/
+	/*
+	var state = 's1';
+        state = DFA.state.sourceCode.charAt(charPointer);
+	if(DFA.state.isAccepting) {var t = new Token(DFA.state.tokenKind, "", 0);}
+	if(DFA.state.sourceCode.charAt(charPointer+1) !== null) {//wait for longest match}
+	//Matrix here
+	*/
 	/*else if(keywordTest.test(currentLexeme)){
 		var t = new Token("keyword", currentLexeme, 0);
 		tokens.push(t);
@@ -259,10 +266,95 @@ function regexT(c: string, charPointer: number, currentLexeme: string, sourceCod
 }
 
 //Step 2 - Input: tokens, Output: CST
-function parse(){
-  
+function parse(tokens: Token[]){
+   parseProgram(tokens);
 }
 
+function parseProgram(tokens){
+  parseBlock(tokens[0..length-1]);
+  //return tokens[tokens.length-1].tokenKind == "T_EOF";    
+}
+
+function parseBlock(){ //blocks inside blocks?
+  parseStatementList(tokens[1..length-1]);
+  //return tokens[0].tokenKind == "T_openBlock" && tokens[length-1].tokenKind == "T_closeBlock";
+}
+
+function parseStatementList(){
+  parseStatement(tokens);
+}
+
+function parseStatement(){
+  parsePrintStatement();
+  parseAssignmentStatement();
+  parseVarDeclStatement();
+  parseWhileStatement();
+  parseIfStatement();
+  parseBlock();
+}
+
+function parsePrintStatement(){
+  //T_print, T_openList, T_closeList
+  parseExpr();
+}
+
+function parseAssignmentStatement(){
+  //T_ID
+  //T_Assign
+  parseExpr();
+}
+
+function parseVarDeclStatement(){
+ //T_Type, T_ID
+}
+
+function parseWhileStatement(){
+  //T_while
+  parseBooleanExpr();
+  parseBlock();
+}
+
+function parseIfStatement(){
+  //T_if
+  parseBooleanExpr();
+  parseBlock();
+}
+
+function parseExpr(){
+  parseIntExpr();
+  parseStringExpr();
+  parseBooleanExpr();
+  //T_ID
+}
+
+function parseIntExpr(){
+ //T_Digit, T_Intop
+ parseExpr();
+ //or T_Digit
+}
+
+function parseStringExpr(){
+  //T_openString
+  parseCharList();
+  //T_closeString
+}
+
+function parseBooleanExpr(){
+  //T_openList
+  parseExpr();
+  //T_boolop
+  parseExpr();
+  //T_closeList
+  //or, T_boolval
+}
+
+function parseCharList(){
+  //empty
+  //T_char
+  //T_space
+}
+
+/**/
 //Step 3 - Input: CST, Output: AST
 function semanticAnalysis(){
   
