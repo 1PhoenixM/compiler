@@ -32,8 +32,11 @@
 				padding: 50px 0px 0px 0px;
 				clear: both;
 			}
-			#compileIt{
+			#compileIt #verbose {
 				margin: 0px 150px 0px 150px;
+			}
+			#verbose {
+				background-color: green;
 			}
 		</style>
 	</head>
@@ -42,9 +45,10 @@
 		<!--div class="code" id="source-code"-->
 			<textarea class="code" id="source-code" placeholder="Source Code"></textarea>
 		<!--/div-->
-		<button id="compileIt" onclick="lex(document.getElementById('source-code').value)">Compile</button>
+		<button id="compileIt" onclick="lex(document.getElementById('source-code').value)">Compile</button><br />
+		<button id="verbose" onclick="verboseToggle()">ON</button>
 		<div class="code" id="machine-code">Machine Code</div>
-		<p id="footer">Melissa Iori</p>
+		<p id="footer">Melissa Iori (alias M*)</p>
 		<script src="compiler.js"></script>
 	</body>
 </html>

@@ -1,5 +1,7 @@
 //Ensure .js is working. Also makes things prettier.
 document.getElementById('footer').style.color = "blue";
+var tokens = [];
+var verboseMode = true;
 //Keyword test
 var keywordTest = new RegExp("print|while|if");
 //Must be literal tests
@@ -52,6 +54,13 @@ var SymbolTableEntry = (function () {
         this.symbol = symbol;
     }
     return SymbolTableEntry;
+})();
+var CSTNode = (function () {
+    function CSTNode(value) {
+        this.value = value;
+        this.value = value;
+    }
+    return CSTNode;
 })();
 var DFA = { 's1': { '+': 's2',
         '"': 's3',
@@ -176,13 +185,14 @@ var DFA = { 's1': { '+': 's2',
 };
 //Step 1
 function lex(sourceCode) {
-    var tokens = getTokenStream(sourceCode); /* issue: printf is recognized as print. throws away string when sees a valid keyword */
+    tokens = getTokenStream(sourceCode); /* issue: printf is recognized as print. throws away string when sees a valid keyword */
     //console.log(sourceCode);
     document.getElementById('machine-code').innerHTML = "";
     for (var i = 0; i < tokens.length; i++) {
         document.getElementById('machine-code').innerHTML += tokens[i].tokenName + " is a " + tokens[i].tokenKind + " on line " + tokens[i].tokenLineNumber + "<br />";
     }
     //return tokens;
+    parse();
 }
 function getTokenStream(sourceCode) {
     var state = 's1';
@@ -202,16 +212,27 @@ function getTokenStream(sourceCode) {
         }
         else {
             state = DFA[state][c];
+            if (typeof DFA[state] !== "undefined") {
+                var t = new Token("T_unknown", currentString, lineNumber);
+                tokens.push(t);
+                return tokens;
+            }
             if ((DFA[state]['accept'] !== null && (DFA[state][cnext] === null) || cnext === '' || cnext === ' ')) {
                 //&& DFA[state][cnext] === null && DFA[state][cnext]['accept'] === null
                 currentString += c;
-                var t = new Token(DFA[state]['accept'], currentString, lineNumber);
-                if (t.tokenKind == "T_quoteString" && !stringMode) {
+                if (typeof DFA[state] !== "undefined") {
+                    var t = new Token(DFA[state]['accept'], currentString, lineNumber);
+                }
+                else {
+                    var t = new Token("T_unknown", currentString, lineNumber);
+                }
+                //Parse strings instead
+                /*if(t.tokenKind == "T_quoteString" && !stringMode){
                     stringMode = true;
                 }
-                else if (t.tokenKind == "T_quoteString" && stringMode) {
+                else if(t.tokenKind == "T_quoteString" && stringMode){
                     stringMode = false;
-                }
+                }*/
                 tokens.push(t);
                 currentString = "";
                 state = 's1';
@@ -224,80 +245,162 @@ function getTokenStream(sourceCode) {
     return tokens;
 }
 //Step 2 - Input: tokens, Output: CST
-function parse(tokens) {
-    parseProgram(tokens);
+var currentToken = 0;
+var logString = "";
+function parse() {
+    parseProgram();
+    document.getElementById('machine-code').innerHTML += log + "Parse complete!";
 }
-function parseProgram(tokens) {
-    parseBlock(tokens.slice(0, length - 1));
-    //return tokens[tokens.length-1].tokenKind == "T_EOF";    
+function parseProgram() {
+    parseBlock();
+    match(["T_EOF"]);
+    log("Program");
 }
-function parseBlock(tokens) {
-    parseStatementList(tokens.slice(1, length - 1));
-    //return tokens[0].tokenKind == "T_openBlock" && tokens[length-1].tokenKind == "T_closeBlock";
+function parseBlock() {
+    match(["T_openBlock"]);
+    parseStatementList();
+    match(["T_closeBlock"]);
+    log("Block");
 }
-function parseStatementList(tokens) {
-    parseStatement(tokens);
+function parseStatementList() {
+    if (!match(["T_keywordPrint", "T_ID", "T_typeInt", "T_typeString", "T_typeBoolean", "T_keywordWhile", "T_keywordIf", "T_openBlock"])) {
+        parseStatement();
+        parseStatementList();
+    }
+    else {
+    }
+    log("Statement List");
 }
-function parseStatement(tokens) {
-    parsePrintStatement();
-    parseAssignmentStatement();
-    parseVarDeclStatement();
-    parseWhileStatement(tokens);
-    parseIfStatement(tokens);
-    parseBlock(tokens);
+function parseStatement() {
+    if (match(["T_keywordPrint"])) {
+        parsePrintStatement();
+    }
+    else if (match(["T_id"])) {
+        parseAssignmentStatement();
+    }
+    else if (match(["T_typeInt"]) || match(["T_typeString"]) || match(["T_typeBoolean"])) {
+        parseVarDeclStatement();
+    }
+    else if (match(["T_keywordWhile"])) {
+        parseWhileStatement();
+    }
+    else if (match(["T_keywordIf"])) {
+        parseIfStatement();
+    }
+    else if (match(["T_openBlock"])) {
+        parseBlock();
+    }
+    else {
+        log("Parse Error while parsing statement.");
+    }
+    log("Statement");
 }
 function parsePrintStatement() {
-    //T_print, T_openList, T_closeList
+    match(["T_keywordPrint"]);
+    match(["T_openList"]);
     parseExpr();
+    match(["T_closeList"]);
+    log("Print Statement");
 }
 function parseAssignmentStatement() {
-    //T_ID
-    //T_Assign
+    match(["T_id"]); //parseID
+    match(["T_assign"]);
     parseExpr();
+    log("Assignment Statement");
 }
 function parseVarDeclStatement() {
-    //T_Type, T_ID
+    match(["T_typeInt", "T_typeString", "T_typeBoolean"]);
+    match(["T_ID"]); //parseID
+    log("Variable Declaration");
 }
-function parseWhileStatement(tokens) {
-    //T_while
+function parseWhileStatement() {
+    match(["T_keywordWhile"]);
     parseBooleanExpr();
-    parseBlock(tokens);
+    parseBlock();
+    log("While Statement");
 }
-function parseIfStatement(tokens) {
-    //T_if
+function parseIfStatement() {
+    match(["T_keywordIf"]);
     parseBooleanExpr();
-    parseBlock(tokens);
+    parseBlock();
+    log("If Statement");
 }
 function parseExpr() {
-    parseIntExpr();
-    parseStringExpr();
-    parseBooleanExpr();
-    //T_ID
+    if (match(["T_digit"])) {
+        parseIntExpr();
+    }
+    else if (match(["T_quote"])) {
+        parseStringExpr();
+    }
+    else if (match(["T_openList"]) || match(["T_booleanTrue"]) || match(["T_openFalse"])) {
+        parseBooleanExpr();
+    }
+    else if (match(["T_char"])) {
+        parseID();
+    }
+    log("Expression");
 }
 function parseIntExpr() {
-    //T_Digit, T_Intop
+    match(["T_digit"]);
+    match(["T_intop"]);
     parseExpr();
-    //or T_Digit
+    //or T_Digit alone
+    log("Integer Expression");
 }
 function parseStringExpr() {
-    //T_openString
+    match(["T_quote"]);
     parseCharList();
-    //T_closeString
+    match(["T_quote"]);
+    log("String Expression");
 }
 function parseBooleanExpr() {
-    //T_openList
+    match(["T_openList"]);
     parseExpr();
-    //T_boolop
+    match(["T_boolop"]);
     parseExpr();
-    //T_closeList
-    //or, T_boolval
+    match(["T_closeList"]);
+    //or, T_boolval alone
+    log("Boolean Expression");
 }
 function parseCharList() {
     //empty
     //T_char
     //T_space
+    if (match(["T_char"]) || match(["T_space"])) {
+        parseCharList();
+    }
+    else {
+    }
+    log("Character List");
 }
-/**/
+function parseID() {
+    match(["T_char"]);
+}
+function match(kinds) {
+    for (var j = 0; j < kinds.length; j++) {
+        if (tokens[currentToken].tokenKind === kinds[j]) {
+            currentToken++;
+            return true;
+        }
+    }
+    return false;
+}
+function log(toAdd) {
+    logString += toAdd + "<br />";
+}
+function verboseToggle() {
+    if (verboseMode) {
+        verboseMode = false;
+        document.getElementById('verbose').style["background-color"] = 'grey';
+        document.getElementById('verbose').innerHTML = 'OFF';
+    }
+    else {
+        verboseMode = true;
+        document.getElementById('verbose').style["background-color"] = 'green';
+        document.getElementById('verbose').innerHTML = 'ON';
+    }
+}
+/*Project 2 and beyond!*/
 //Step 3 - Input: CST, Output: AST
 function semanticAnalysis() {
 }
