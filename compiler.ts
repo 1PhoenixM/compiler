@@ -136,35 +136,8 @@ var DFA = {'s1' : {'+': 's2',
 		   },
 	    's6' : {'=': 's14', 'accept': 'T_assign'},
 	    's7' : {'=': 's15', 'accept': 'T_notEqualTo'},
-	    's10' : {/*'r': 's16',
-	    	     'a': 's17',
-		     'n': 's18',
-		     'o': 's19',
-		     't': 's20',
-		     //'f': 's21',
-		     'h': 's22',*/
-			 'accept': 'T_id'},
-	    /*'s16' : {'i': 's23',
-	    	     'u': 's24',},
-	    's23' : {'n': 's25'},
-	    's25' : {'t': 's26'},
-	    's17' : {'l': 's27'},
-	    's27' : {'s': 's28'},
-	    's28' : {'e': 's29'},
-	    's24' : {'e': 's30'},
-	    's18' : {'t': 's31'},
-	    's19' : {'o': 's32'},
-	    's32' : {'l': 's33'},
-	    's33' : {'e': 's34'},
-	    's34' : {'a': 's35'},
-	    's35' : {'n': 's36'},
-	    's20' : {'r': 's37'},
-	    's37' : {'i': 's38'},
-	    's38' : {'n': 's39'},
-	    's39' : {'g': 's40'},
-	    's22' : {'i': 's41'},
-	    's41' : {'l': 's42'},
-	    's42' : {'e': 's43'},*/
+	    's10' : {
+			 'accept': 'T_char'},
 	    
 	    //Accepting states
 	    's2' : {'accept': 'T_intop'},
@@ -178,17 +151,17 @@ var DFA = {'s1' : {'+': 's2',
 		's13' : {'accept': 'T_closeList'},
 		's14' : {'accept': 'T_testIfEqual'},
 		's15' : {'accept': 'T_notEqualTo'},
-		's21' : {'f': 's44', 'n': 's56', 'accept': 'T_id'}, //if or int
+		's21' : {'f': 's44', 'n': 's56', 'accept': 'T_char'}, //if or int
 		
 		's44' : {'accept': 'T_keywordIf'},
 		
-		's45' : {'r': 's46', 'accept': 'T_id' }, //pr
+		's45' : {'r': 's46', 'accept': 'T_char' }, //pr
 		's46' : {'i': 's47' }, //pri
 		's47' : {'n': 's48' }, //prin
 		's48' : {'t': 's49' }, //print
 		's49' : { 'accept': 'T_keywordPrint' }, //print
 		
-		's51' : {'h': 's52', 'accept': 'T_id' }, //wh
+		's51' : {'h': 's52', 'accept': 'T_char' }, //wh
 		's52' : {'i': 's53' }, //whi
 		's53' : {'l': 's54' }, //whil
 		's54' : {'e': 's55' }, //while
@@ -197,7 +170,7 @@ var DFA = {'s1' : {'+': 's2',
 		's56' : {'t': 's57' }, //in
 		's57' : { 'accept': 'T_typeInt' }, //int
 		
-		's58' : {'o': 's59', 'accept': 'T_id' }, //bo
+		's58' : {'o': 's59', 'accept': 'T_char' }, //bo
 		's59' : {'o': 's60' }, //boo (ghost state)
 		's60' : {'l': 's61' }, //bool
 		's61' : {'e': 's62' }, //boole
@@ -205,20 +178,20 @@ var DFA = {'s1' : {'+': 's2',
 		's63' : {'n': 's64' }, //boolean
 		's64' : { 'accept': 'T_typeBoolean' }, //boolean
 		
-		's65' : {'t': 's66', 'accept': 'T_id' }, //st
+		's65' : {'t': 's66', 'accept': 'T_char' }, //st
 		's66' : {'r': 's67' }, //str
 		's67' : {'i': 's68' }, //stri
 		's68' : {'n': 's69' }, //strin
 		's69' : {'g': 's70' }, //string
 		's70' : { 'accept': 'T_typeString' }, //string
 		
-		's71' : {'a': 's72', 'accept': 'T_id' }, //fa
+		's71' : {'a': 's72', 'accept': 'T_char' }, //fa
 		's72' : {'l': 's73' }, //fal
 		's73' : {'s': 's74' }, //fals
 		's74' : {'e': 's75' }, //false
 		's75' : { 'accept': 'T_boolFalse' }, //false
 		
-		's76' : {'r': 's77', 'accept': 'T_id' }, //tr
+		's76' : {'r': 's77', 'accept': 'T_char' }, //tr
 		's77' : {'u': 's78' }, //tru
 		's78' : {'e': 's79' }, //true
 		's79' : { 'accept': 'T_boolTrue' } //true
@@ -233,13 +206,22 @@ var DFA = {'s1' : {'+': 's2',
 //Step 1
 function lex(sourceCode: string){
   tokens = getTokenStream(sourceCode); /* handle boo and prin etc. */
-  //console.log(sourceCode);
   document.getElementById('machine-code').innerHTML = "";
-  for(var i = 0; i < tokens.length; i++){
-    document.getElementById('machine-code').innerHTML += tokens[i].tokenName + " is a " + tokens[i].tokenKind + " on line " + tokens[i].tokenLineNumber + "<br />";
+  //console.log(sourceCode);
+  if(tokens !== []){
+	  
+	  if(verboseMode){
+		  for(var i = 0; i < tokens.length; i++){
+			document.getElementById('machine-code').innerHTML += tokens[i].tokenName + " is a " + tokens[i].tokenKind + " on line " + tokens[i].tokenLineNumber + "<br />";
+		  }
+	  }
+	  //return tokens;
+	  document.getElementById('machine-code').innerHTML += "Lex complete!" + "<br />";
+	  parse();
   }
-  //return tokens;
-  parse();
+  else{
+	  document.getElementById('machine-code').innerHTML += "Lexical error!";
+  }
 }
 
 function getTokenStream(sourceCode: String){
@@ -273,6 +255,7 @@ function getTokenStream(sourceCode: String){
 				}
 				else{
 					var t = new Token("T_unknown", currentString, lineNumber);
+					return [];
 				}
 				//Parse strings instead
 				/*if(t.tokenKind == "T_quoteString" && !stringMode){
@@ -325,7 +308,7 @@ function parseBlock(){ //blocks inside blocks are handled recursively
 }
 
 function parseStatementList(){
-  if(matchWithoutConsumption(["T_keywordPrint", "T_id", "T_typeInt", "T_typeString", "T_typeBoolean", "T_keywordWhile", "T_keywordIf", "T_openBlock"])){ //first sets for statements
+  if(matchWithoutConsumption(["T_keywordPrint", "T_char", "T_typeInt", "T_typeString", "T_typeBoolean", "T_keywordWhile", "T_keywordIf", "T_openBlock"])){ //first sets for statements
 	parseStatement();
     parseStatementList();
   }
@@ -338,7 +321,7 @@ function parseStatementList(){
 
 function parseStatement(){
   if(matchWithoutConsumption(["T_keywordPrint"])){ parsePrintStatement(); log("Statement"); }
-  else if(matchWithoutConsumption(["T_id"])){ parseAssignmentStatement(); log("Statement"); }
+  else if(matchWithoutConsumption(["T_char"])){ parseAssignmentStatement(); log("Statement"); }
   else if(matchWithoutConsumption(["T_typeInt"]) || match(["T_typeString"]) || match(["T_typeBoolean"])){ parseVarDeclStatement(); log("Statement"); }
   else if(matchWithoutConsumption(["T_keywordWhile"])){ parseWhileStatement(); log("Statement"); }
   else if(matchWithoutConsumption(["T_keywordIf"])){ parseIfStatement(); log("Statement"); }
@@ -370,7 +353,7 @@ function parsePrintStatement(){
 }
 
 function parseAssignmentStatement(){
-  match(["T_id"]); //parseID
+  parseID();
   match(["T_assign"]);
   parseExpr();
   log("Assignment Statement");
@@ -378,45 +361,74 @@ function parseAssignmentStatement(){
 
 function parseVarDeclStatement(){
   match(["T_typeInt", "T_typeString", "T_typeBoolean"]);
-  match(["T_ID"]); //parseID
+  parseID();
   log("Variable Declaration");
 }
 
 function parseWhileStatement(){
-  match(["T_keywordWhile"]);
-  parseBooleanExpr();
-  parseBlock();
-  log("While Statement");
+  if(match(["T_keywordWhile"])){
+	parseBooleanExpr();
+	parseBlock();
+	log("While Statement");  
+  }
+  else{
+	  log("Parse Error - Invalid while statement");
+  }
 }
 
 function parseIfStatement(){
-  match(["T_keywordIf"]);
-  parseBooleanExpr();
-  parseBlock();
-  log("If Statement");
+  if(match(["T_keywordIf"])){
+	  parseBooleanExpr();
+	  parseBlock();
+	  log("If Statement");
+  }
+  else{
+	  log("Parse Error - Invalid if statement");
+  }
 }
 
 function parseExpr(){
   if(matchWithoutConsumption(["T_digit"])) { parseIntExpr(); }
-  else if(matchWithoutConsumption(["T_quote"])) { parseStringExpr(); }
+  else if(matchWithoutConsumption(["T_quoteString"])) { parseStringExpr(); }
   else if(matchWithoutConsumption(["T_openList"]) || matchWithoutConsumption(["T_boolTrue"]) || matchWithoutConsumption(["T_boolFalse"])) { parseBooleanExpr(); }
   else if(matchWithoutConsumption(["T_char"])) { parseID(); }
   log("Expression");
 }
 
 function parseIntExpr(){
-  match(["T_digit"]);
-  match(["T_intop"]);
-  parseExpr();
- //or T_Digit alone
-  log("Integer Expression");
+  if(matchWithoutConsumption(["T_digit"])){
+	  if(lookahead(["T_intop"])){
+		match(["T_digit"]);
+		if(match(["T_intop"])){
+			 parseExpr();
+			 log("Integer Expression");
+		}
+		else{
+			 log("Parse Error - Expecting +");
+		}
+	  } 
+	  else if(match(["T_digit"])){
+		  log("Integer Expression");
+	  }
+  }
+  else{
+	  log("Parse Error - Invalid Int Expr");
+  }
 }
 
 function parseStringExpr(){
-  match(["T_quote"]);
-  parseCharList();
-  match(["T_quote"]);
-   log("String Expression");
+  if(match(["T_quoteString"])){
+	  parseCharList();
+	  if(match(["T_quoteString"])){
+		log("String Expression");
+	  }
+	  else{
+		log("Parse Error - Unterminated string literal");  
+	  }
+  }
+  else{
+	  log("Parse Error - String must start with \"");  
+  }
 }
 
 function parseBooleanExpr(){
@@ -448,9 +460,6 @@ function parseBooleanExpr(){
 }
 
 function parseCharList(){
-  //empty
-  //T_char
-  //T_space
   if(match(["T_char"]) || match(["T_space"])){
 	parseCharList();
   }
@@ -461,7 +470,12 @@ function parseCharList(){
 }
 
 function parseID(){
-  match(["T_char"]);
+  if(match(["T_char"])){
+	  log("ID");
+  }
+  else{
+	  log("Parse Error - Expected an ID");
+  }
 }
 
 //Refactor to bool flag for 'consume'
@@ -484,8 +498,19 @@ function matchWithoutConsumption(kinds: String[]){
   return false;
 }
 
+function lookahead(kinds: String[]){
+  for(var j = 0; j < kinds.length; j++){
+	if(tokens[currentToken+1].tokenKind === kinds[j]){
+		return true;
+	}
+  }
+  return false;
+}
+
 function log(toAdd: String){
-   logString += toAdd + "<br />";
+   if(verboseMode){
+      logString += toAdd + "<br />";
+   }
 }
 
 function verboseToggle(){
