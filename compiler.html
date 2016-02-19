@@ -37,6 +37,7 @@
 			}
 			#verbose {
 				background-color: green;
+				color: white;
 			}
 		</style>
 	</head>
@@ -46,7 +47,7 @@
 			<textarea class="code" id="source-code" placeholder="Source Code"></textarea>
 		<!--/div-->
 		<button id="compileIt" onclick="lex(document.getElementById('source-code').value)">Compile</button><br />
-		<button id="verbose" onclick="verboseToggle()">ON</button>
+		<button id="verbose" onclick="verboseToggle()">Verbose ON</button>
 		<div class="code" id="machine-code">Machine Code</div>
 		<p id="footer">Melissa Iori (alias M*)</p>
 		<script src="compiler.js"></script>

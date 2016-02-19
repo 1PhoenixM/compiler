@@ -131,8 +131,8 @@ var DFA = {'s1' : {'+': 's2',
 		   '7': 's11',
 		   '8': 's11',
 		   '9': 's11',
-		   '(': 's12',
-		   ')': 's13'
+		   '\(': 's12', //{ print ( 5 ) } $ works, but { print(5) } $ doesn't
+		   '\)': 's13'
 		   },
 	    's6' : {'=': 's14', 'accept': 'T_assign'},
 	    's7' : {'=': 's15', 'accept': 'T_notEqualTo'},
@@ -174,8 +174,8 @@ var DFA = {'s1' : {'+': 's2',
 		's8' : {'accept': 'T_openBlock'},
 		's9' : {'accept': 'T_closeBlock'},
 		's11' : {'accept': 'T_digit'},
-		's12' : {'accept': 'T_openArgList'},
-		's13' : {'accept': 'T_closeArgList'},
+		's12' : {'accept': 'T_openList'},
+		's13' : {'accept': 'T_closeList'},
 		's14' : {'accept': 'T_testIfEqual'},
 		's15' : {'accept': 'T_notEqualTo'},
 		's21' : {'f': 's44', 'n': 's56', 'accept': 'T_id'}, //if or int
@@ -232,7 +232,7 @@ var DFA = {'s1' : {'+': 's2',
 
 //Step 1
 function lex(sourceCode: string){
-  tokens = getTokenStream(sourceCode); /* issue: printf is recognized as print. throws away string when sees a valid keyword */
+  tokens = getTokenStream(sourceCode); /* handle boo and prin etc. */
   //console.log(sourceCode);
   document.getElementById('machine-code').innerHTML = "";
   for(var i = 0; i < tokens.length; i++){
@@ -247,7 +247,7 @@ function getTokenStream(sourceCode: String){
 	var tokens = [];
 	var currentString = "";
 	var lineNumber = 1;
-	var stringMode = false;
+	//var stringMode = false;
 	for(var i = 0; i < sourceCode.length; i++){
 		var c = sourceCode.charAt(i);
 		var cnext = sourceCode.charAt(i+1);
@@ -260,11 +260,11 @@ function getTokenStream(sourceCode: String){
 		}
 		else{
 			state = DFA[state][c];
-			if(typeof DFA[state] !== "undefined"){
+			/*if(typeof state !== "undefined"){
 				var t = new Token("T_unknown", currentString, lineNumber);
 				tokens.push(t);
 				return tokens;
-			}
+			}*/
 			if((DFA[state]['accept'] !== null && (DFA[state][cnext] === null) || cnext === '' || cnext === ' ')) { //need to handle unknown chars gracefully
 			//&& DFA[state][cnext] === null && DFA[state][cnext]['accept'] === null
 				currentString += c;
@@ -297,53 +297,76 @@ var currentToken = 0;
 var logString = "";
 
 function parse(){
+   currentToken = 0;
    parseProgram();
-   document.getElementById('machine-code').innerHTML += log + "Parse complete!";
+   document.getElementById('machine-code').innerHTML += logString + "Parse complete!";
+   logString = "";
 }
 
 function parseProgram(){
   parseBlock();
-  match(["T_EOF"]);
-  log("Program");
+  if(match(["T_EOF"])) { log("Program"); }
+  else { log("Parse Error - Missing End of Program marker, '$'."); }
 }
 
-function parseBlock(){ //blocks inside blocks?
-  match(["T_openBlock"]); 
-  parseStatementList();
-  match(["T_closeBlock"]); 
-  log("Block");
+function parseBlock(){ //blocks inside blocks are handled recursively
+  if(match(["T_openBlock"])) {
+	  parseStatementList();
+	  if(match(["T_closeBlock"])){
+		 log("Block");
+	  }
+	  else{
+	     log("Parse Error - Expected '}' to end block.");
+	  }
+  }
+  else{
+	  log("Parse Error - No block found to start with '{'.");
+  } 
 }
 
 function parseStatementList(){
-  if(!match(["T_keywordPrint", "T_ID", "T_typeInt", "T_typeString", "T_typeBoolean", "T_keywordWhile", "T_keywordIf", "T_openBlock"])){ //first sets for statements
+  if(matchWithoutConsumption(["T_keywordPrint", "T_id", "T_typeInt", "T_typeString", "T_typeBoolean", "T_keywordWhile", "T_keywordIf", "T_openBlock"])){ //first sets for statements
 	parseStatement();
     parseStatementList();
   }
   else{
 	//nothing, no statement. epsilon
+	return;
   }
   log("Statement List");
 }
 
 function parseStatement(){
-  if(match(["T_keywordPrint"])){ parsePrintStatement(); }
-  else if(match(["T_id"])){ parseAssignmentStatement(); }
-  else if(match(["T_typeInt"]) || match(["T_typeString"]) || match(["T_typeBoolean"])){ parseVarDeclStatement(); }
-  else if(match(["T_keywordWhile"])){ parseWhileStatement(); }
-  else if(match(["T_keywordIf"])){ parseIfStatement(); }
-  else if(match(["T_openBlock"])){ parseBlock(); } 
+  if(matchWithoutConsumption(["T_keywordPrint"])){ parsePrintStatement(); log("Statement"); }
+  else if(matchWithoutConsumption(["T_id"])){ parseAssignmentStatement(); log("Statement"); }
+  else if(matchWithoutConsumption(["T_typeInt"]) || match(["T_typeString"]) || match(["T_typeBoolean"])){ parseVarDeclStatement(); log("Statement"); }
+  else if(matchWithoutConsumption(["T_keywordWhile"])){ parseWhileStatement(); log("Statement"); }
+  else if(matchWithoutConsumption(["T_keywordIf"])){ parseIfStatement(); log("Statement"); }
+  else if(matchWithoutConsumption(["T_openBlock"])){ parseBlock(); log("Statement"); } 
   else{
-	log("Parse Error while parsing statement.");
+	log("Parse Error - Invalid statement.");
   }
-  log("Statement");
 }
 
 function parsePrintStatement(){
-  match(["T_keywordPrint"]);
-  match(["T_openList"]); 
-  parseExpr();
-  match(["T_closeList"]);
-  log("Print Statement");
+  if(match(["T_keywordPrint"])){	
+	  if(match(["T_openList"])){
+		  parseExpr();
+		  if(match(["T_closeList"])){
+			  log("Print Statement");
+		  }
+		  else{
+			  log("Parse Error - ')' expected to end print statement.");
+		  }
+	  }
+	  else{
+		  log("Parse Error - '(' expected after 'print'");
+	  }
+  }
+  else{
+	  log("Parse Error - 'print' expected.");
+  }
+  
 }
 
 function parseAssignmentStatement(){
@@ -374,10 +397,10 @@ function parseIfStatement(){
 }
 
 function parseExpr(){
-  if(match(["T_digit"])) { parseIntExpr(); }
-  else if(match(["T_quote"])) { parseStringExpr(); }
-  else if(match(["T_openList"]) || match(["T_booleanTrue"]) || match(["T_openFalse"])) { parseBooleanExpr(); }
-  else if(match(["T_char"])) { parseID(); }
+  if(matchWithoutConsumption(["T_digit"])) { parseIntExpr(); }
+  else if(matchWithoutConsumption(["T_quote"])) { parseStringExpr(); }
+  else if(matchWithoutConsumption(["T_openList"]) || matchWithoutConsumption(["T_boolTrue"]) || matchWithoutConsumption(["T_boolFalse"])) { parseBooleanExpr(); }
+  else if(matchWithoutConsumption(["T_char"])) { parseID(); }
   log("Expression");
 }
 
@@ -397,13 +420,31 @@ function parseStringExpr(){
 }
 
 function parseBooleanExpr(){
-  match(["T_openList"]);
-  parseExpr();
-  match(["T_boolop"]);
-  parseExpr();
-  match(["T_closeList"]);
-  //or, T_boolval alone
-   log("Boolean Expression");
+  if(match(["T_openList"])){
+	  parseExpr();
+	  if(match(["T_boolop"])){
+		  parseExpr();
+	      if(match(["T_closeList"])){
+			  log("Boolean Expression");
+		  }
+		  else{
+			  log("Parse Error - Expected ')' to close boolean expression");
+		  }
+	  }
+	  else{
+		  log("Parse Error - Missing boolean operator like == or !=");
+	  }
+	  
+  }
+  
+  else if(match(["T_boolTrue"]) || match(["T_boolFalse"])){
+	  log("Boolean Expression");
+  }
+  
+  else{
+	  log("Parse Error - Invalid Boolean Expression");
+  }
+   
 }
 
 function parseCharList(){
@@ -423,10 +464,20 @@ function parseID(){
   match(["T_char"]);
 }
 
+//Refactor to bool flag for 'consume'
 function match(kinds: String[]){
   for(var j = 0; j < kinds.length; j++){
 	if(tokens[currentToken].tokenKind === kinds[j]){
 		currentToken++;
+		return true;
+	}
+  }
+  return false;
+}
+
+function matchWithoutConsumption(kinds: String[]){
+  for(var j = 0; j < kinds.length; j++){
+	if(tokens[currentToken].tokenKind === kinds[j]){
 		return true;
 	}
   }
@@ -441,12 +492,12 @@ function verboseToggle(){
 	if(verboseMode){
 		verboseMode = false;
 		document.getElementById('verbose').style["background-color"] = 'grey';
-		document.getElementById('verbose').innerHTML = 'OFF';
+		document.getElementById('verbose').innerHTML = 'Verbose OFF';
 	}
 	else{
 		verboseMode = true;
 		document.getElementById('verbose').style["background-color"] = 'green';
-		document.getElementById('verbose').innerHTML = 'ON';
+		document.getElementById('verbose').innerHTML = 'Verbose ON';
 	}
 }
 
