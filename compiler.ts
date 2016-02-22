@@ -1,64 +1,21 @@
+/*
+* Melissa Iori
+* Compiler
+* CMPT 432
+*/
+
 //Ensure .js is working. Also makes things prettier.
 document.getElementById('footer').style.color = "blue";
 
+//Global array of tokens.
 var tokens = [];
+
+//Flag for verbose mode.
 var verboseMode = true;
 
-//Keyword test
-var keywordTest = new RegExp("print|while|if");
-//Must be literal tests
-//Type test
-var typeTest = new RegExp("int|string|boolean");
-
-//Program test
-var programTest = new RegExp(".*\$");
-
-//Open block test
-var openBlockTest = new RegExp("{");
-
-//Close block test
-var closeBlockTest = new RegExp("}");
-
-//Open param list test
-var openParamListTest = new RegExp("[(]");
-
-//Close param list test
-//var closeParamListTest = new RegExp(")");
-
-//StatementList
-
-//Statement
-
-//PrintStatement
-
-//AssignmentStatement
-
-//VarDecl
-
-//WhileStatement
-
-//IfStatement
-
-//Expr - IntExpr, StringExpr, BooleanExpr, Id, CharList
-
-//Char test
-var charTest = new RegExp("[a-z]");
-
-//Space test
-var spaceTest = new RegExp(" ");
-
-//Digit test
-var digitTest = new RegExp("[0-9]");
-
-//BoolOP test
-var boolopTest = new RegExp("==|\!=");
-
-//BoolVal test
-var boolvalTest = new RegExp("true|false");
-
-//IntOP test
-var intopTest = new RegExp("[+]");
-
+//The Token class.
+//A token has a kind (digit, openBlock, keywordIf), a name (the actual characters it consists of), and a line number on which it was found.
+//Example: The string "while" is a token of type T_keywordWhile and the string "6" is a token of type T_digit.
 class Token{
     constructor(public tokenKind, public tokenName, public tokenLineNumber) {
         this.tokenKind = tokenKind;
@@ -67,26 +24,32 @@ class Token{
     }
 }
 
+//The SymbolTableEntry class.
 class SymbolTableEntry{
     constructor(public symbol){
 		this.symbol = symbol;
     }
 }
 
+//The concrete syntax tree node class.
 class CSTNode{
     constructor(public value){
 		this.value = value;
     }
 }
 
+//The SymbolTableArray of SymbolTableEntries.
 interface SymbolTableArray{
 	[index: number]: SymbolTableEntry;
 }
 
+//The TokenArray of Tokens.
 interface TokenArray{
 	[index: number]: Token;
 }
 
+//The deterministic finite automaton (used like a matrix)
+//Gives paths from state to state for accepted strings of characters.
 var DFA = {'s1' : {'+': 's2',
 		   '"': 's3',
 		   '\ ': 's4',
@@ -131,15 +94,12 @@ var DFA = {'s1' : {'+': 's2',
 		   '7': 's11',
 		   '8': 's11',
 		   '9': 's11',
-		   '\(': 's12', //{ print ( 5 ) } $ works, but { print(5) } $ doesn't
+		   '\(': 's12', 
 		   '\)': 's13'
 		   },
-	    's6' : {'=': 's14', 'accept': 'T_assign'},
-	    's7' : {'=': 's15', 'accept': 'T_notEqualTo'},
-	    's10' : {
-			 'accept': 'T_char'},
-	    
-	    //Accepting states
+	    's6' : {'=': 's14', 'accept': 'T_assign'}, 
+	    's7' : {'=': 's15', 'accept': 'T_notEqualTo'}, 
+	    's10' : {'accept': 'T_char'},
 	    's2' : {'accept': 'T_intop'},
 		's3' : {'accept': 'T_quoteString'},
 		's4' : {'accept': 'T_space'},
@@ -149,8 +109,8 @@ var DFA = {'s1' : {'+': 's2',
 		's11' : {'accept': 'T_digit'},
 		's12' : {'accept': 'T_openList'},
 		's13' : {'accept': 'T_closeList'},
-		's14' : {'accept': 'T_boolop'},
-		's15' : {'accept': 'T_boolop'},
+		's14' : {'accept': 'T_boolop'}, //==
+		's15' : {'accept': 'T_boolop'}, //!=
 		's21' : {'f': 's44', 'n': 's56', 'accept': 'T_char'}, //if or int
 		
 		's44' : {'accept': 'T_keywordIf'},
@@ -199,35 +159,56 @@ var DFA = {'s1' : {'+': 's2',
 	    };
 
 //Step 1
+//Lexical analysis: Constructs tokens and filters whitespace and bogus characters.
+//Takes in source code string, outputs array of tokens.
 function lex(sourceCode: string){
-  tokens = getTokenStream(sourceCode); /* handle boo and prin etc. */
+  tokens = getTokenStream(sourceCode);
+  
+  //Clear log area and print tokens + completion message
   document.getElementById('machine-code').innerHTML = "";
-  //console.log(sourceCode);
-  if(tokens !== []){
-	  
+  if(tokens !== []){  
 	  if(verboseMode){
 		  for(var i = 0; i < tokens.length; i++){
 			document.getElementById('machine-code').innerHTML += tokens[i].tokenName + " is a " + tokens[i].tokenKind + " on line " + tokens[i].tokenLineNumber + "<br />";
 		  }
 	  }
-	  //return tokens;
 	  document.getElementById('machine-code').innerHTML += "Lex complete!" + "<br />";
+	  
+	  //On to parse step
 	  parse();
   }
+  
+  //If tokens is empty, an error occurred
   else{
 	  document.getElementById('machine-code').innerHTML += "Lexical error!";
   }
 }
 
+//Traverses DFA to test whether a string is accepted or not
 function getTokenStream(sourceCode: String){
+	//s1 is the start state
 	var state = 's1';
+	
+	//Clear tokens
 	var tokens = [];
+	
+	//Start with empty string
 	var currentString = "";
+	
+	//Line number count starts at 1
 	var lineNumber = 1;
+	
+	//Not currently reading in a "string literal"
 	var stringMode = false;
+	
+	//For each source code character...
 	for(var i = 0; i < sourceCode.length; i++){
+		
+		//Get the character and the one after it
 		var c = sourceCode.charAt(i);
 		var cnext = sourceCode.charAt(i+1);
+		
+		//If newline, just move on to a new line
 		if(c == "\n"){
 			lineNumber++;
 		}
@@ -235,25 +216,44 @@ function getTokenStream(sourceCode: String){
 			state = 's1';
 			currentString = "";
 		}*/
+		
 		else{
+			//Based on current state and current character, get the next state
 			state = DFA[state][c];
+			
+			//If there is no next state, the string is illegal
 			if(typeof state === "undefined"){
 				var t = new Token("T_unknown", currentString, lineNumber);
 				tokens.push(t);
 				return tokens;
 			}
+			
+			//If this is an accepting state and there is no path to continue from here, create a token
 			if((DFA[state]['accept'] !== null) && (typeof DFA[state][cnext] === "undefined" || cnext === '' || cnext === ' ')) { //need to handle unknown chars gracefully
 			//&& DFA[state][cnext] === null && DFA[state][cnext]['accept'] === null //try-catch here
+			
+				//Add to current string
 				currentString += c;
+				
+				//Other check for illegality
 				if(typeof DFA[state] !== "undefined"){
+					
+					//If found a space and NOT reading in a "string literal"
 					if(DFA[state]['accept'] === "T_space" && !stringMode){
-						//block out T_space
+						//Do not create a token - just ignore
 					}
+					
+					//If it's a quote character
 					else if(DFA[state]['accept'] === "T_quoteString"){
+						//Make a new token and add it
 						var t = new Token(DFA[state]['accept'], currentString, lineNumber);
+						
+						//If string mode is off, set it to on. If string mode is on, set it to off.
 						stringMode = stringMode ? false : true;
 						tokens.push(t);
 					}
+					
+					//All else, create and add a new token of the accepting kind, with the character sequence and line number
 					else{
 						var t = new Token(DFA[state]['accept'], currentString, lineNumber);
 						tokens.push(t);
@@ -264,9 +264,13 @@ function getTokenStream(sourceCode: String){
 					tokens.push(t);
 					return tokens;
 				}
+				
+				//Reset current string and go back to start state to look for more tokens
 				currentString = "";
 				state = 's1';
 			}
+			
+			//There may be another string beyond here, such as in the case of keywords, so continue to longest match - do not create token yet
 			else { currentString += c; }
 		}
 	}
@@ -274,27 +278,39 @@ function getTokenStream(sourceCode: String){
 }
 
 //Step 2 - Input: tokens, Output: CST
+//Parser ensures that syntax is correct
 
+//Current token pointer in token array.
 var currentToken = 0;
+
+//String to be logged.
 var logString = "";
 
+//Number of programs parsed
+var programCount = 0;
+
+//Kick off the parse phase
 function parse(){
    currentToken = 0;
    parseProgram();
    document.getElementById('machine-code').innerHTML += logString + "Parse complete!";
    logString = "";
+   programCount = 0;
 }
 
+//Ensure a program contains a block and ends with an EOF.
+//Continue to read in programs as long as there are more tokens after EOF.
 function parseProgram(){
   parseBlock();
-  if(match(["T_EOF"])) { log("Program"); }
+  if(match(["T_EOF"], false, false)) { programCount++; log("Program " + programCount); if(currentToken < tokens.length) { parseProgram(); } }
   else { log("Parse Error - Missing End of Program marker, '$'."); }
 }
 
+//Ensure a block starts with an open block delimiter, contains a statement list, and ends with a close block delimiter.
 function parseBlock(){ //blocks inside blocks are handled recursively
-  if(match(["T_openBlock"])) {
+  if(match(["T_openBlock"], false, false)) {
 	  parseStatementList();
-	  if(match(["T_closeBlock"])){
+	  if(match(["T_closeBlock"], false, false)){
 		 log("Block");
 	  }
 	  else{
@@ -306,8 +322,9 @@ function parseBlock(){ //blocks inside blocks are handled recursively
   } 
 }
 
+//Ensure a statement list contains zero or more statements by checking for first sets and using tail end recursion
 function parseStatementList(){
-  if(matchWithoutConsumption(["T_keywordPrint", "T_char", "T_typeInt", "T_typeString", "T_typeBoolean", "T_keywordWhile", "T_keywordIf", "T_openBlock"])){ //first sets for statements
+  if(match(["T_keywordPrint", "T_char", "T_typeInt", "T_typeString", "T_typeBoolean", "T_keywordWhile", "T_keywordIf", "T_openBlock"], true, false)){ //first sets for statements
 	parseStatement();
     parseStatementList();
   }
@@ -318,23 +335,25 @@ function parseStatementList(){
   log("Statement List");
 }
 
+//Ensure a statement is one of the statement types by what it begins with
 function parseStatement(){
-  if(matchWithoutConsumption(["T_keywordPrint"])){ parsePrintStatement(); log("Statement"); }
-  else if(matchWithoutConsumption(["T_char"])){ parseAssignmentStatement(); log("Statement"); }
-  else if(matchWithoutConsumption(["T_typeInt"]) || match(["T_typeString"]) || match(["T_typeBoolean"])){ parseVarDeclStatement(); log("Statement"); }
-  else if(matchWithoutConsumption(["T_keywordWhile"])){ parseWhileStatement(); log("Statement"); }
-  else if(matchWithoutConsumption(["T_keywordIf"])){ parseIfStatement(); log("Statement"); }
-  else if(matchWithoutConsumption(["T_openBlock"])){ parseBlock(); log("Statement"); } 
+  if(match(["T_keywordPrint"], true, false)){ parsePrintStatement(); log("Statement"); }
+  else if(match(["T_char"], true, false)){ parseAssignmentStatement(); log("Statement"); }
+  else if(match(["T_typeInt"], true, false) || match(["T_typeString"], true, false) || match(["T_typeBoolean"], true, false)){ parseVarDeclStatement(); log("Statement"); }
+  else if(match(["T_keywordWhile"], true, false)){ parseWhileStatement(); log("Statement"); }
+  else if(match(["T_keywordIf"], true, false)){ parseIfStatement(); log("Statement"); }
+  else if(match(["T_openBlock"], true, false)){ parseBlock(); log("Statement"); } 
   else{
 	log("Parse Error - Invalid statement.");
   }
 }
 
+//Ensure a print statement contains the print keyword, opens a list, contains an expression to be printed, and closes its list.
 function parsePrintStatement(){
-  if(match(["T_keywordPrint"])){	
-	  if(match(["T_openList"])){
+  if(match(["T_keywordPrint"], false, false)){	
+	  if(match(["T_openList"], false, false)){
 		  parseExpr();
-		  if(match(["T_closeList"])){
+		  if(match(["T_closeList"], false, false)){
 			  log("Print Statement");
 		  }
 		  else{
@@ -351,21 +370,26 @@ function parsePrintStatement(){
   
 }
 
+//Ensure an assignment statement contains an ID, the assignment operator, and an expression.
 function parseAssignmentStatement(){
   parseID();
-  match(["T_assign"]);
+  match(["T_assign"], false, false);
   parseExpr();
   log("Assignment Statement");
 }
 
+
+//Ensure a variable declaration contains one of the types and an ID.
 function parseVarDeclStatement(){
-  match(["T_typeInt", "T_typeString", "T_typeBoolean"]);
+  match(["T_typeInt", "T_typeString", "T_typeBoolean"], false, false);
   parseID();
   log("Variable Declaration");
 }
 
+
+//Ensure a while statement contains the while keyword, a boolean expression test, and a block.
 function parseWhileStatement(){
-  if(match(["T_keywordWhile"])){
+  if(match(["T_keywordWhile"], false, false)){
 	parseBooleanExpr();
 	parseBlock();
 	log("While Statement");  
@@ -375,8 +399,10 @@ function parseWhileStatement(){
   }
 }
 
+
+//Ensure an if statement contains the if keyword, a boolean expression test, and a block.
 function parseIfStatement(){
-  if(match(["T_keywordIf"])){
+  if(match(["T_keywordIf"], false, false)){
 	  parseBooleanExpr();
 	  parseBlock();
 	  log("If Statement");
@@ -386,19 +412,21 @@ function parseIfStatement(){
   }
 }
 
+//Ensure an expression is one of the valid types.
 function parseExpr(){
-  if(matchWithoutConsumption(["T_digit"])) { parseIntExpr(); }
-  else if(matchWithoutConsumption(["T_quoteString"])) { parseStringExpr(); }
-  else if(matchWithoutConsumption(["T_openList"]) || matchWithoutConsumption(["T_boolTrue"]) || matchWithoutConsumption(["T_boolFalse"])) { parseBooleanExpr(); }
-  else if(matchWithoutConsumption(["T_char"])) { parseID(); }
+  if(match(["T_digit"], true, false)) { parseIntExpr(); }
+  else if(match(["T_quoteString"], true, false)) { parseStringExpr(); }
+  else if(match(["T_openList"], true, false) || match(["T_boolTrue"], true, false) || match(["T_boolFalse"], true, false)) { parseBooleanExpr(); }
+  else if(match(["T_char"], true, false)) { parseID(); }
   log("Expression");
 }
 
+//Ensure an integer expression starts with a digit, and optionally includes an integer operator and another expression. Must use lookahead to tell.
 function parseIntExpr(){
-  if(matchWithoutConsumption(["T_digit"])){
-	  if(lookahead(["T_intop"])){
-		match(["T_digit"]);
-		if(match(["T_intop"])){
+  if(match(["T_digit"], true, false)){
+	  if(match(["T_intop"], true, true)){
+		match(["T_digit"], false, false);
+		if(match(["T_intop"], false, false)){
 			 parseExpr();
 			 log("Integer Expression");
 		}
@@ -406,7 +434,7 @@ function parseIntExpr(){
 			 log("Parse Error - Expecting +");
 		}
 	  } 
-	  else if(match(["T_digit"])){
+	  else if(match(["T_digit"], false, false)){
 		  log("Integer Expression");
 	  }
   }
@@ -415,10 +443,11 @@ function parseIntExpr(){
   }
 }
 
+//Ensure a string expression contains an opening quote, a char list, and a closing quote.
 function parseStringExpr(){
-  if(match(["T_quoteString"])){
+  if(match(["T_quoteString"], false, false)){
 	  parseCharList();
-	  if(match(["T_quoteString"])){
+	  if(match(["T_quoteString"], false, false)){
 		log("String Expression");
 	  }
 	  else{
@@ -430,12 +459,14 @@ function parseStringExpr(){
   }
 }
 
+//Ensure a boolean expression contains an open list delimiter, an expression, a boolean operator, another expression, and a close list delimiter.
+//Or, it could be a true or a false.
 function parseBooleanExpr(){
-  if(match(["T_openList"])){
+  if(match(["T_openList"], false, false)){
 	  parseExpr();
-	  if(match(["T_boolop"])){
+	  if(match(["T_boolop"], false, false)){
 		  parseExpr();
-	      if(match(["T_closeList"])){
+	      if(match(["T_closeList"], false, false)){
 			  log("Boolean Expression");
 		  }
 		  else{
@@ -448,7 +479,7 @@ function parseBooleanExpr(){
 	  
   }
   
-  else if(match(["T_boolTrue"]) || match(["T_boolFalse"])){
+  else if(match(["T_boolTrue"], false, false) || match(["T_boolFalse"], false, false)){
 	  log("Boolean Expression");
   }
   
@@ -458,8 +489,10 @@ function parseBooleanExpr(){
    
 }
 
+
+//Ensure a char list is empty, or contains chars and/or spaces only.
 function parseCharList(){
-  if(match(["T_char"]) || match(["T_space"])){
+  if(match(["T_char"], false, false) || match(["T_space"], false, false)){
 	parseCharList();
   }
   else{
@@ -468,8 +501,9 @@ function parseCharList(){
    log("Character List");
 }
 
+//Ensure an ID is a char.
 function parseID(){
-  if(match(["T_char"])){
+  if(match(["T_char"], false, false)){
 	  log("ID");
   }
   else{
@@ -477,41 +511,34 @@ function parseID(){
   }
 }
 
-//Refactor to bool flag for 'consume'
-function match(kinds: String[]){
+//Matches the current token based on kinds
+//If noConsume is set, will not consume a token, just check for it
+//If lookahead is set, will check the next character
+function match(kinds: String[], noConsume: boolean, lookahead: boolean){
   for(var j = 0; j < kinds.length; j++){
-	if(tokens[currentToken].tokenKind === kinds[j]){
-		currentToken++;
+	if(lookahead && tokens[currentToken+1].tokenKind === kinds[j]){
 		return true;
+	}
+	else{
+		if(tokens[currentToken].tokenKind === kinds[j]){
+			if(!noConsume){
+				currentToken++;
+			}
+			return true;
+		}
 	}
   }
   return false;
 }
 
-function matchWithoutConsumption(kinds: String[]){
-  for(var j = 0; j < kinds.length; j++){
-	if(tokens[currentToken].tokenKind === kinds[j]){
-		return true;
-	}
-  }
-  return false;
-}
-
-function lookahead(kinds: String[]){
-  for(var j = 0; j < kinds.length; j++){
-	if(tokens[currentToken+1].tokenKind === kinds[j]){
-		return true;
-	}
-  }
-  return false;
-}
-
+//Log information on the compilation process to the user
 function log(toAdd: String){
    if(verboseMode){
       logString += toAdd + "<br />";
    }
 }
 
+//Set verbose status and button
 function verboseToggle(){
 	if(verboseMode){
 		verboseMode = false;
