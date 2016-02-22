@@ -64,7 +64,7 @@ var CSTNode = (function () {
 })();
 var DFA = { 's1': { '+': 's2',
         '"': 's3',
-        ' ': 's4',
+        '\ ': 's4',
         '$': 's5',
         '=': 's6',
         '!': 's7',
@@ -123,8 +123,8 @@ var DFA = { 's1': { '+': 's2',
     's11': { 'accept': 'T_digit' },
     's12': { 'accept': 'T_openList' },
     's13': { 'accept': 'T_closeList' },
-    's14': { 'accept': 'T_testIfEqual' },
-    's15': { 'accept': 'T_notEqualTo' },
+    's14': { 'accept': 'T_boolop' },
+    's15': { 'accept': 'T_boolop' },
     's21': { 'f': 's44', 'n': 's56', 'accept': 'T_char' },
     's44': { 'accept': 'T_keywordIf' },
     's45': { 'r': 's46', 'accept': 'T_char' },
@@ -186,42 +186,41 @@ function getTokenStream(sourceCode) {
     var tokens = [];
     var currentString = "";
     var lineNumber = 1;
-    //var stringMode = false;
+    var stringMode = false;
     for (var i = 0; i < sourceCode.length; i++) {
         var c = sourceCode.charAt(i);
         var cnext = sourceCode.charAt(i + 1);
         if (c == "\n") {
             lineNumber++;
         }
-        else if (c == " ") {
-            state = 's1';
-            currentString = "";
-        }
         else {
             state = DFA[state][c];
-            /*if(typeof state !== "undefined"){
+            if (typeof state === "undefined") {
                 var t = new Token("T_unknown", currentString, lineNumber);
                 tokens.push(t);
                 return tokens;
-            }*/
-            if ((DFA[state]['accept'] !== null && (DFA[state][cnext] === null) || cnext === '' || cnext === ' ')) {
-                //&& DFA[state][cnext] === null && DFA[state][cnext]['accept'] === null
+            }
+            if ((DFA[state]['accept'] !== null) && (typeof DFA[state][cnext] === "undefined" || cnext === '' || cnext === ' ')) {
+                //&& DFA[state][cnext] === null && DFA[state][cnext]['accept'] === null //try-catch here
                 currentString += c;
                 if (typeof DFA[state] !== "undefined") {
-                    var t = new Token(DFA[state]['accept'], currentString, lineNumber);
+                    if (DFA[state]['accept'] === "T_space" && !stringMode) {
+                    }
+                    else if (DFA[state]['accept'] === "T_quoteString") {
+                        var t = new Token(DFA[state]['accept'], currentString, lineNumber);
+                        stringMode = stringMode ? false : true;
+                        tokens.push(t);
+                    }
+                    else {
+                        var t = new Token(DFA[state]['accept'], currentString, lineNumber);
+                        tokens.push(t);
+                    }
                 }
                 else {
                     var t = new Token("T_unknown", currentString, lineNumber);
-                    return [];
+                    tokens.push(t);
+                    return tokens;
                 }
-                //Parse strings instead
-                /*if(t.tokenKind == "T_quoteString" && !stringMode){
-                    stringMode = true;
-                }
-                else if(t.tokenKind == "T_quoteString" && stringMode){
-                    stringMode = false;
-                }*/
-                tokens.push(t);
                 currentString = "";
                 state = 's1';
             }
