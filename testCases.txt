@@ -1,0 +1,30 @@
+{} $
+
+{ print (5) } $
+
+{ x = true } $
+
+{ int w } $
+
+{ string p } $
+
+{ boolean n } $
+
+{ while (x != t) { print (x) } } $ 
+
+{ if (a == false) { print(1) } } $
+
+{ { } } $
+
+{ { } } } $
+
+{ x = true int w } $
+
+{ print (5+5) } $
+
+{ print ("hello") } $
+
+{ print ("") } $
+
+{ print ("string with spaces") } $
+
