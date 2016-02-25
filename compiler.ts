@@ -302,7 +302,7 @@ function parse(){
 //Continue to read in programs as long as there are more tokens after EOF.
 function parseProgram(){
   parseBlock();
-  if(match(["T_EOF"], false, false)) { programCount++; log("Program " + programCount); if(currentToken < tokens.length) { parseProgram(); } }
+  if(match(["T_EOF"], false, false)) { programCount++; log("Program " + programCount + "<br />"); if(currentToken < tokens.length) { parseProgram(); } }
   else { log("Parse Error - Missing End of Program marker, '$'."); }
 }
 
@@ -314,11 +314,11 @@ function parseBlock(){ //blocks inside blocks are handled recursively
 		 log("Block");
 	  }
 	  else{
-	     log("Parse Error - Expected '}' to end block.");
+	     log("Parse Error - Expected '}' to end block, got " + tokens[currentToken].tokenName);
 	  }
   }
   else{
-	  log("Parse Error - No block found to start with '{'.");
+	  log("Parse Error - Expected '{' to start a block, got " + tokens[currentToken].tokenName);
   } 
 }
 
@@ -344,7 +344,7 @@ function parseStatement(){
   else if(match(["T_keywordIf"], true, false)){ parseIfStatement(); log("Statement"); }
   else if(match(["T_openBlock"], true, false)){ parseBlock(); log("Statement"); } 
   else{
-	log("Parse Error - Invalid statement.");
+	log("Parse Error - Invalid statement, cannot begin with " + tokens[currentToken].tokenName);
   }
 }
 
@@ -357,15 +357,15 @@ function parsePrintStatement(){
 			  log("Print Statement");
 		  }
 		  else{
-			  log("Parse Error - ')' expected to end print statement.");
+			  log("Parse Error - Expected ')' to end print statement, got " + tokens[currentToken].tokenName);
 		  }
 	  }
 	  else{
-		  log("Parse Error - '(' expected after 'print'");
+		  log("Parse Error - Expected '(' for print statement, got " + tokens[currentToken].tokenName);
 	  }
   }
   else{
-	  log("Parse Error - 'print' expected.");
+	  log("Parse Error - Expected 'print' to begin print statement, got " + tokens[currentToken].tokenName);
   }
   
 }
@@ -373,17 +373,25 @@ function parsePrintStatement(){
 //Ensure an assignment statement contains an ID, the assignment operator, and an expression.
 function parseAssignmentStatement(){
   parseID();
-  match(["T_assign"], false, false);
-  parseExpr();
-  log("Assignment Statement");
+  if(match(["T_assign"], false, false)){
+	parseExpr();
+	log("Assignment Statement");
+  }
+  else{
+	log("Parse Error - Expected = to assign ID to something, got " + tokens[currentToken].tokenName);  
+  }
 }
 
 
 //Ensure a variable declaration contains one of the types and an ID.
 function parseVarDeclStatement(){
-  match(["T_typeInt", "T_typeString", "T_typeBoolean"], false, false);
-  parseID();
-  log("Variable Declaration");
+  if(match(["T_typeInt", "T_typeString", "T_typeBoolean"], false, false)){
+	  parseID();
+	  log("Variable Declaration");
+  }
+  else{
+	  log("Parse Error - Expected type declaration 'int', 'string' or 'boolean', got " + tokens[currentToken].tokenName);
+  }
 }
 
 
@@ -395,7 +403,7 @@ function parseWhileStatement(){
 	log("While Statement");  
   }
   else{
-	  log("Parse Error - Invalid while statement");
+	  log("Parse Error - Expected 'while' to begin while statement, got " + tokens[currentToken].tokenName);
   }
 }
 
@@ -408,7 +416,7 @@ function parseIfStatement(){
 	  log("If Statement");
   }
   else{
-	  log("Parse Error - Invalid if statement");
+	  log("Parse Error - Expected 'if' to begin if statement, got " + tokens[currentToken].tokenName);
   }
 }
 
@@ -431,7 +439,7 @@ function parseIntExpr(){
 			 log("Integer Expression");
 		}
 		else{
-			 log("Parse Error - Expecting +");
+			 log("Parse Error - Expecting + in integer expression, got " + tokens[currentToken].tokenName);
 		}
 	  } 
 	  else if(match(["T_digit"], false, false)){
@@ -439,7 +447,7 @@ function parseIntExpr(){
 	  }
   }
   else{
-	  log("Parse Error - Invalid Int Expr");
+	  log("Parse Error - Expecting digit to begin integer expression, got " + tokens[currentToken].tokenName);
   }
 }
 
@@ -455,7 +463,7 @@ function parseStringExpr(){
 	  }
   }
   else{
-	  log("Parse Error - String must start with \"");  
+	  log("Parse Error - Expected \" to begin string, got " + tokens[currentToken].tokenName);  
   }
 }
 
@@ -470,11 +478,11 @@ function parseBooleanExpr(){
 			  log("Boolean Expression");
 		  }
 		  else{
-			  log("Parse Error - Expected ')' to close boolean expression");
+			  log("Parse Error - Expected ')' to close boolean expression, got " + tokens[currentToken].tokenName);
 		  }
 	  }
 	  else{
-		  log("Parse Error - Missing boolean operator like == or !=");
+		  log("Parse Error - Missing boolean operator like == or !=, got instead " + tokens[currentToken].tokenName);
 	  }
 	  
   }
@@ -484,7 +492,7 @@ function parseBooleanExpr(){
   }
   
   else{
-	  log("Parse Error - Invalid Boolean Expression");
+	  log("Parse Error - Expected boolean expression, got " + tokens[currentToken].tokenName);
   }
    
 }
@@ -507,7 +515,7 @@ function parseID(){
 	  log("ID");
   }
   else{
-	  log("Parse Error - Expected an ID");
+	  log("Parse Error - Expected an ID a-z, got " + tokens[currentToken].tokenName);
   }
 }
 
@@ -544,11 +552,13 @@ function verboseToggle(){
 		verboseMode = false;
 		document.getElementById('verbose').style["background-color"] = 'grey';
 		document.getElementById('verbose').innerHTML = 'Verbose OFF';
+		lex((<HTMLInputElement>document.getElementById('source-code')).value); //compile again with verbose off
 	}
 	else{
 		verboseMode = true;
 		document.getElementById('verbose').style["background-color"] = 'green';
 		document.getElementById('verbose').innerHTML = 'Verbose ON';
+		lex((<HTMLInputElement>document.getElementById('source-code')).value); //compile again with verbose on
 	}
 }
 
