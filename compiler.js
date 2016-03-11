@@ -3,6 +3,11 @@
 * Compiler
 * CMPT 432
 */
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+};
 //Ensure .js is working. Also makes things prettier.
 document.getElementById('footer').style.color = "blue";
 //Global array of tokens.
@@ -17,7 +22,7 @@ var Token = (function () {
         this.tokenKind = tokenKind;
         this.tokenName = tokenName;
         this.tokenLineNumber = tokenLineNumber;
-        this.tokenKind = tokenKind;
+        this.tokenKind = tokenKind; //enum
         this.tokenName = tokenName;
         this.tokenLineNumber = tokenLineNumber;
     }
@@ -31,14 +36,90 @@ var SymbolTableEntry = (function () {
     }
     return SymbolTableEntry;
 })();
+//The concrete syntax tree class.
+var ConcreteSyntaxTree = (function () {
+    function ConcreteSyntaxTree(root, current) {
+        this.root = root;
+        this.current = current;
+        this.root = root;
+        this.current = current;
+    }
+    ConcreteSyntaxTree.prototype.addBranchNode = function (nodeName) {
+        var n = new CSTBranchNode(nodeName, null, []);
+        if (n.nodeName === "Program") {
+            this.root = n;
+            this.current = this.root;
+        }
+        else {
+            n.parent = this.current;
+            n.parent.children.push(n);
+            this.current = n;
+        }
+    };
+    ;
+    ConcreteSyntaxTree.prototype.addLeafNode = function (nodeName, nodeVal) {
+        var n = new CSTLeafNode(nodeName, nodeVal, null, []);
+        if (n.nodeName === "Program") {
+        }
+        else {
+            n.parent = this.current;
+            n.parent.children.push(n);
+        }
+    };
+    ;
+    ConcreteSyntaxTree.prototype.backtrack = function () {
+        this.current = this.current.parent;
+    };
+    ;
+    ConcreteSyntaxTree.prototype.toString = function (rootNode) {
+        if (rootNode.children.length > 0) {
+            for (var i = 0; i < rootNode.children.length; i++) {
+                return this.toString(rootNode.children[i]) + "\\" + rootNode.children[i].nodeName;
+            }
+        }
+        else {
+            return rootNode.nodeName;
+        }
+    };
+    ;
+    return ConcreteSyntaxTree;
+})();
 //The concrete syntax tree node class.
 var CSTNode = (function () {
-    function CSTNode(value) {
-        this.value = value;
-        this.value = value;
+    function CSTNode(nodeName, parent, children) {
+        this.nodeName = nodeName;
+        this.parent = parent;
+        this.children = children;
+        this.nodeName = nodeName;
+        this.parent = parent;
+        this.children = children;
     }
     return CSTNode;
 })();
+//The concrete syntax tree branch node class. Each represents a nonterminal.
+var CSTBranchNode = (function (_super) {
+    __extends(CSTBranchNode, _super);
+    function CSTBranchNode(nodeName, parent, children) {
+        _super.call(this, nodeName, parent, children);
+        this.nodeName = nodeName;
+        this.parent = parent;
+        this.children = children;
+    }
+    return CSTBranchNode;
+})(CSTNode);
+//The concrete syntax tree leaf node class. Each represents a terminal.
+var CSTLeafNode = (function (_super) {
+    __extends(CSTLeafNode, _super);
+    function CSTLeafNode(nodeName, nodeVal, parent, children) {
+        _super.call(this, nodeName, parent, children);
+        this.nodeName = nodeName;
+        this.nodeVal = nodeVal;
+        this.parent = parent;
+        this.children = children;
+        this.nodeVal = nodeVal;
+    }
+    return CSTLeafNode;
+})(CSTNode);
 //The deterministic finite automaton (used like a matrix)
 //Gives paths from state to state for accepted strings of characters.
 var DFA = { 's1': { '+': 's2',
@@ -236,6 +317,8 @@ var currentToken = 0;
 var logString = "";
 //Number of programs parsed
 var programCount = 0;
+//Concrete syntax tree. One instance per program
+var CST = new ConcreteSyntaxTree(null, null);
 //Kick off the parse phase
 function parse() {
     currentToken = 0;
@@ -247,10 +330,14 @@ function parse() {
 //Ensure a program contains a block and ends with an EOF.
 //Continue to read in programs as long as there are more tokens after EOF.
 function parseProgram() {
+    //var CST = new ConcreteSyntaxTree(null, null);
+    CST.addBranchNode("Program");
     parseBlock();
     if (match(["T_EOF"], false, false)) {
         programCount++;
         log("Program " + programCount + "<br />");
+        log("Concrete Syntax Tree for Program " + programCount + ":<br />" + CST.toString(CST.root));
+        CST = new ConcreteSyntaxTree(null, null);
         if (currentToken < tokens.length) {
             parseProgram();
         }
@@ -261,6 +348,7 @@ function parseProgram() {
 }
 //Ensure a block starts with an open block delimiter, contains a statement list, and ends with a close block delimiter.
 function parseBlock() {
+    CST.addBranchNode("Block");
     if (match(["T_openBlock"], false, false)) {
         parseStatementList();
         if (match(["T_closeBlock"], false, false)) {
@@ -273,9 +361,11 @@ function parseBlock() {
     else {
         log("Parse Error - Expected '{' to start a block, got " + tokens[currentToken].tokenName);
     }
+    CST.backtrack();
 }
 //Ensure a statement list contains zero or more statements by checking for first sets and using tail end recursion
 function parseStatementList() {
+    CST.addBranchNode("StatementList");
     if (match(["T_keywordPrint", "T_char", "T_typeInt", "T_typeString", "T_typeBoolean", "T_keywordWhile", "T_keywordIf", "T_openBlock"], true, false)) {
         parseStatement();
         parseStatementList();
@@ -285,9 +375,11 @@ function parseStatementList() {
         return;
     }
     log("Statement List");
+    CST.backtrack();
 }
 //Ensure a statement is one of the statement types by what it begins with
 function parseStatement() {
+    CST.addBranchNode("Statement");
     if (match(["T_keywordPrint"], true, false)) {
         parsePrintStatement();
         log("Statement");
@@ -315,9 +407,11 @@ function parseStatement() {
     else {
         log("Parse Error - Invalid statement, cannot begin with " + tokens[currentToken].tokenName);
     }
+    CST.backtrack();
 }
 //Ensure a print statement contains the print keyword, opens a list, contains an expression to be printed, and closes its list.
 function parsePrintStatement() {
+    CST.addBranchNode("PrintStatement");
     if (match(["T_keywordPrint"], false, false)) {
         if (match(["T_openList"], false, false)) {
             parseExpr();
@@ -335,9 +429,11 @@ function parsePrintStatement() {
     else {
         log("Parse Error - Expected 'print' to begin print statement, got " + tokens[currentToken].tokenName);
     }
+    CST.backtrack();
 }
 //Ensure an assignment statement contains an ID, the assignment operator, and an expression.
 function parseAssignmentStatement() {
+    CST.addBranchNode("AssignmentStatement");
     parseID();
     if (match(["T_assign"], false, false)) {
         parseExpr();
@@ -346,9 +442,11 @@ function parseAssignmentStatement() {
     else {
         log("Parse Error - Expected = to assign ID to something, got " + tokens[currentToken].tokenName);
     }
+    CST.backtrack();
 }
 //Ensure a variable declaration contains one of the types and an ID.
 function parseVarDeclStatement() {
+    CST.addBranchNode("VariableDeclarationStatement");
     if (match(["T_typeInt", "T_typeString", "T_typeBoolean"], false, false)) {
         parseID();
         log("Variable Declaration");
@@ -356,9 +454,11 @@ function parseVarDeclStatement() {
     else {
         log("Parse Error - Expected type declaration 'int', 'string' or 'boolean', got " + tokens[currentToken].tokenName);
     }
+    CST.backtrack();
 }
 //Ensure a while statement contains the while keyword, a boolean expression test, and a block.
 function parseWhileStatement() {
+    CST.addBranchNode("WhileStatement");
     if (match(["T_keywordWhile"], false, false)) {
         parseBooleanExpr();
         parseBlock();
@@ -367,9 +467,11 @@ function parseWhileStatement() {
     else {
         log("Parse Error - Expected 'while' to begin while statement, got " + tokens[currentToken].tokenName);
     }
+    CST.backtrack();
 }
 //Ensure an if statement contains the if keyword, a boolean expression test, and a block.
 function parseIfStatement() {
+    CST.addBranchNode("IfStatement");
     if (match(["T_keywordIf"], false, false)) {
         parseBooleanExpr();
         parseBlock();
@@ -378,9 +480,11 @@ function parseIfStatement() {
     else {
         log("Parse Error - Expected 'if' to begin if statement, got " + tokens[currentToken].tokenName);
     }
+    CST.backtrack();
 }
 //Ensure an expression is one of the valid types.
 function parseExpr() {
+    CST.addBranchNode("Expression");
     if (match(["T_digit"], true, false)) {
         parseIntExpr();
     }
@@ -394,9 +498,11 @@ function parseExpr() {
         parseID();
     }
     log("Expression");
+    CST.backtrack();
 }
 //Ensure an integer expression starts with a digit, and optionally includes an integer operator and another expression. Must use lookahead to tell.
 function parseIntExpr() {
+    CST.addBranchNode("IntegerExpression");
     if (match(["T_digit"], true, false)) {
         if (match(["T_intop"], true, true)) {
             match(["T_digit"], false, false);
@@ -415,9 +521,11 @@ function parseIntExpr() {
     else {
         log("Parse Error - Expecting digit to begin integer expression, got " + tokens[currentToken].tokenName);
     }
+    CST.backtrack();
 }
 //Ensure a string expression contains an opening quote, a char list, and a closing quote.
 function parseStringExpr() {
+    CST.addBranchNode("StringExpression");
     if (match(["T_quoteString"], false, false)) {
         parseCharList();
         if (match(["T_quoteString"], false, false)) {
@@ -430,10 +538,12 @@ function parseStringExpr() {
     else {
         log("Parse Error - Expected \" to begin string, got " + tokens[currentToken].tokenName);
     }
+    CST.backtrack();
 }
 //Ensure a boolean expression contains an open list delimiter, an expression, a boolean operator, another expression, and a close list delimiter.
 //Or, it could be a true or a false.
 function parseBooleanExpr() {
+    CST.addBranchNode("BooleanExpression");
     if (match(["T_openList"], false, false)) {
         parseExpr();
         if (match(["T_boolop"], false, false)) {
@@ -455,24 +565,29 @@ function parseBooleanExpr() {
     else {
         log("Parse Error - Expected boolean expression, got " + tokens[currentToken].tokenName);
     }
+    CST.backtrack();
 }
 //Ensure a char list is empty, or contains chars and/or spaces only.
 function parseCharList() {
+    CST.addBranchNode("CharList");
     if (match(["T_char"], false, false) || match(["T_space"], false, false)) {
         parseCharList();
     }
     else {
     }
     log("Character List");
+    CST.backtrack();
 }
 //Ensure an ID is a char.
 function parseID() {
+    CST.addBranchNode("ID");
     if (match(["T_char"], false, false)) {
         log("ID");
     }
     else {
         log("Parse Error - Expected an ID a-z, got " + tokens[currentToken].tokenName);
     }
+    CST.backtrack();
 }
 //Matches the current token based on kinds
 //If noConsume is set, will not consume a token, just check for it
@@ -485,6 +600,7 @@ function match(kinds, noConsume, lookahead) {
         else {
             if (tokens[currentToken].tokenKind === kinds[j]) {
                 if (!noConsume) {
+                    CST.addLeafNode(tokens[currentToken].tokenKind, tokens[currentToken].tokenName); //have real names, T_digit >> Digit
                     currentToken++;
                 }
                 return true;

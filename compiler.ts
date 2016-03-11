@@ -33,15 +33,15 @@ class SymbolTableEntry{
 
 //The concrete syntax tree class.
 class ConcreteSyntaxTree{
-	constructor(){
-		//empty
+	constructor(public root, public current){
+		this.root = root;
+		this.current = current;
 	}
-	root: CSTBranchNode;
-	current: CSTBranchNode;
 	addBranchNode(nodeName: string){
-		var n = new CSTBranchNode(nodeName);
+		var n = new CSTBranchNode(nodeName, null, []);
 		if(n.nodeName === "Program"){
 			this.root = n;
+			this.current = this.root;
 		}
 		else{
 			n.parent = this.current;
@@ -50,7 +50,7 @@ class ConcreteSyntaxTree{
 		}
 	};
 	addLeafNode(nodeName: string, nodeVal: string){
-		var n = new CSTLeafNode(nodeName, nodeVal);
+		var n = new CSTLeafNode(nodeName, nodeVal, null, []);
 		if(n.nodeName === "Program"){
 			//error
 		}
@@ -62,30 +62,40 @@ class ConcreteSyntaxTree{
 	backtrack(){
 		this.current = this.current.parent;
 	};
+	toString(rootNode: CSTNode){
+		if(rootNode.children.length > 0){
+			for(var i = 0; i < rootNode.children.length; i++){
+				return this.toString(rootNode.children[i]) + "\\" + rootNode.children[i].nodeName;
+			}
+		}
+		else{
+			return rootNode.nodeName;
+		}
+	};
 }
 
 //The concrete syntax tree node class.
 class CSTNode{
-	nodeName: string;
-	parent: CSTBranchNode;
+	constructor(public nodeName, public parent, public children){
+		this.nodeName = nodeName; 
+		this.parent = parent;
+		this.children = children;
+    }
 }
 
 //The concrete syntax tree branch node class. Each represents a nonterminal.
 class CSTBranchNode extends CSTNode{
-    constructor(public nodeName){
-		this.nodeName = nodeName; //super(nodeName);
+    constructor(public nodeName, public parent, public children){
+		super(nodeName, parent, children);
     }
-	parent: CSTBranchNode;
-	children: CSTNode[];
 }
 
 //The concrete syntax tree leaf node class. Each represents a terminal.
 class CSTLeafNode extends CSTNode{
-    constructor(public nodeName, public nodeVal){
-		this.nodeName = nodeName; //super(nodeName);
+    constructor(public nodeName, public nodeVal, public parent, public children){
+		super(nodeName, parent, children);
 		this.nodeVal = nodeVal;
     }
-	parent: CSTBranchNode;
 }
 
 //The SymbolTableArray of SymbolTableEntries.
@@ -340,7 +350,7 @@ var logString = "";
 var programCount = 0;
 
 //Concrete syntax tree. One instance per program
-var CST = new ConcreteSyntaxTree();
+var CST = new ConcreteSyntaxTree(null, null);
 
 //Kick off the parse phase
 function parse(){
@@ -354,12 +364,14 @@ function parse(){
 //Ensure a program contains a block and ends with an EOF.
 //Continue to read in programs as long as there are more tokens after EOF.
 function parseProgram(){
+  //var CST = new ConcreteSyntaxTree(null, null);
   CST.addBranchNode("Program");
   parseBlock();
   if(match(["T_EOF"], false, false)) { 
 	programCount++;
-	var CST = new ConcreteSyntaxTree(); //print out tree
 	log("Program " + programCount + "<br />"); 
+	log("Concrete Syntax Tree for Program " + programCount + ":<br />" + CST.toString(CST.root));
+	CST = new ConcreteSyntaxTree(null, null);
 	if(currentToken < tokens.length) { parseProgram(); } 
   }
   else { log("Parse Error - Missing End of Program marker, '$'."); }
@@ -380,7 +392,7 @@ function parseBlock(){ //blocks inside blocks are handled recursively
   else{
 	  log("Parse Error - Expected '{' to start a block, got " + tokens[currentToken].tokenName);
   } 
-  backtrack();
+  CST.backtrack();
 }
 
 //Ensure a statement list contains zero or more statements by checking for first sets and using tail end recursion
@@ -395,7 +407,7 @@ function parseStatementList(){
 	return;
   }
   log("Statement List");
-  backtrack();
+  CST.backtrack();
 }
 
 //Ensure a statement is one of the statement types by what it begins with
@@ -410,7 +422,7 @@ function parseStatement(){
   else{
 	log("Parse Error - Invalid statement, cannot begin with " + tokens[currentToken].tokenName);
   }
-  backtrack();
+  CST.backtrack();
 }
 
 //Ensure a print statement contains the print keyword, opens a list, contains an expression to be printed, and closes its list.
@@ -433,7 +445,7 @@ function parsePrintStatement(){
   else{
 	  log("Parse Error - Expected 'print' to begin print statement, got " + tokens[currentToken].tokenName);
   }
-  backtrack();
+  CST.backtrack();
 }
 
 //Ensure an assignment statement contains an ID, the assignment operator, and an expression.
@@ -447,7 +459,7 @@ function parseAssignmentStatement(){
   else{
 	log("Parse Error - Expected = to assign ID to something, got " + tokens[currentToken].tokenName);  
   }
-  backtrack();
+  CST.backtrack();
 }
 
 
@@ -461,7 +473,7 @@ function parseVarDeclStatement(){
   else{
 	  log("Parse Error - Expected type declaration 'int', 'string' or 'boolean', got " + tokens[currentToken].tokenName);
   }
-  backtrack();
+  CST.backtrack();
 }
 
 
@@ -476,7 +488,7 @@ function parseWhileStatement(){
   else{
 	  log("Parse Error - Expected 'while' to begin while statement, got " + tokens[currentToken].tokenName);
   }
-  backtrack();
+  CST.backtrack();
 }
 
 
@@ -491,7 +503,7 @@ function parseIfStatement(){
   else{
 	  log("Parse Error - Expected 'if' to begin if statement, got " + tokens[currentToken].tokenName);
   }
-  backtrack();
+  CST.backtrack();
 }
 
 //Ensure an expression is one of the valid types.
@@ -502,7 +514,7 @@ function parseExpr(){
   else if(match(["T_openList"], true, false) || match(["T_boolTrue"], true, false) || match(["T_boolFalse"], true, false)) { parseBooleanExpr(); }
   else if(match(["T_char"], true, false)) { parseID(); }
   log("Expression");
-  backtrack();
+  CST.backtrack();
 }
 
 //Ensure an integer expression starts with a digit, and optionally includes an integer operator and another expression. Must use lookahead to tell.
@@ -526,7 +538,7 @@ function parseIntExpr(){
   else{
 	  log("Parse Error - Expecting digit to begin integer expression, got " + tokens[currentToken].tokenName);
   }
-  backtrack();
+  CST.backtrack();
 }
 
 //Ensure a string expression contains an opening quote, a char list, and a closing quote.
@@ -544,7 +556,7 @@ function parseStringExpr(){
   else{
 	  log("Parse Error - Expected \" to begin string, got " + tokens[currentToken].tokenName);  
   }
-  backtrack();
+  CST.backtrack();
 }
 
 //Ensure a boolean expression contains an open list delimiter, an expression, a boolean operator, another expression, and a close list delimiter.
@@ -575,7 +587,7 @@ function parseBooleanExpr(){
   else{
 	  log("Parse Error - Expected boolean expression, got " + tokens[currentToken].tokenName);
   }
-   backtrack();
+   CST.backtrack();
 }
 
 
@@ -589,7 +601,7 @@ function parseCharList(){
     //nothing. epsilon
   }
    log("Character List");
-   backtrack();
+   CST.backtrack();
 }
 
 //Ensure an ID is a char.
@@ -601,7 +613,7 @@ function parseID(){
   else{
 	  log("Parse Error - Expected an ID a-z, got " + tokens[currentToken].tokenName);
   }
-  backtrack();
+  CST.backtrack();
 }
 
 //Matches the current token based on kinds
@@ -615,7 +627,7 @@ function match(kinds: String[], noConsume: boolean, lookahead: boolean){
 	else{
 		if(tokens[currentToken].tokenKind === kinds[j]){
 			if(!noConsume){
-				CST.addLeafNode(tokens[currentToken].tokenKind, tokens[currentToken].tokenName);
+				CST.addLeafNode(tokens[currentToken].tokenKind, tokens[currentToken].tokenName); //have real names, T_digit >> Digit
 				currentToken++;
 			}
 			return true;
