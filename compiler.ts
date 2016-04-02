@@ -217,6 +217,36 @@ var DFA = {'s1' : {'+': 's2',
 		's79' : { 'accept': 'T_boolTrue' } //true
 		
 	    };
+		
+//A regex may be used here [a-z]
+var stringDFA = {
+	'a': { 'accept': 'char' },
+	'b': { 'accept': 'char' },
+	'c': { 'accept': 'char' },
+	'd': { 'accept': 'char' },
+	'e': { 'accept': 'char' },
+	'f': { 'accept': 'char' },
+	'g': { 'accept': 'char' },
+	'h': { 'accept': 'char' },
+	'i': { 'accept': 'char' },
+	'j': { 'accept': 'char' },
+	'k': { 'accept': 'char' },
+	'l': { 'accept': 'char' },
+	'm': { 'accept': 'char' },
+	'n': { 'accept': 'char' },
+	'o': { 'accept': 'char' },
+	'p': { 'accept': 'char' },
+	'q': { 'accept': 'char' },
+	'r': { 'accept': 'char' },
+	's': { 'accept': 'char' },
+	't': { 'accept': 'char' },
+	'u': { 'accept': 'char' },
+	'v': { 'accept': 'char' },
+	'w': { 'accept': 'char' },
+	'x': { 'accept': 'char' },
+	'y': { 'accept': 'char' },
+	'z': { 'accept': 'char' }
+};
 
 //Step 1
 //Lexical analysis: Constructs tokens and filters whitespace and bogus characters.
@@ -359,6 +389,7 @@ function parse(){
    document.getElementById('machine-code').innerHTML += logString + "Parse complete!";
    logString = "";
    programCount = 0;
+   semanticAnalysis();
 }
 
 //Ensure a program contains a block and ends with an EOF.
@@ -660,13 +691,37 @@ function verboseToggle(){
 	}
 }
 
-/*Project 2 and beyond!*/
+var AST = new AbstractSyntaxTree();
+
+//The nodes that transfer from CST to AST
+var ASTNodes = {
+	// + -> add (intexpr + intexpr)
+	// print -> output (expr)
+	// == -> isEqualTo (expr == expr)
+	// != -> isNotEqualTo (expr != expr)
+	// true -> isTrue ()
+	// false -> isFalse ()
+	// { } -> newScope (statements)
+	// = -> assign (id + expr)
+	// int,string,boolean -> vardecl (type + id)
+	// if -> if (cond + scope/block)
+	// while -> while (cond + scope/block)
+		
+	//leaves - values
+};
+/*Project 2 */
 //Step 3 - Input: CST, Output: AST
 function semanticAnalysis(){
-  
+  //traverse in order depth first CST and select important nodes
+  //build AST with those
+  //include subtree recipes of what to look for
+  //scope check
+  //type check
 }
 
+/* Final project */
 //Step 4 - Input: AST, Output: Equivalent hex codes
 function codeGeneration(){
-  
+  //instruction selection
+  //translate into hex/bin
 }
