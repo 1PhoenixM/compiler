@@ -31,6 +31,11 @@ class SymbolTableEntry{
     }
 }
 
+class AbstractSyntaxTree{
+	
+	
+}
+
 //The concrete syntax tree class.
 class ConcreteSyntaxTree{
 	constructor(public root, public current){
@@ -62,14 +67,16 @@ class ConcreteSyntaxTree{
 	backtrack(){
 		this.current = this.current.parent;
 	};
-	toString(rootNode: CSTNode){
+	toString(rootNode: CSTNode, indent: string){
+		log("\n" + indent + rootNode.nodeName);
 		if(rootNode.children.length > 0){
 			for(var i = 0; i < rootNode.children.length; i++){
-				return this.toString(rootNode.children[i]) + "\\" + rootNode.children[i].nodeName;
+				this.toString(rootNode.children[i], indent+"-");
+				log("\n" + indent + rootNode.children[i].nodeName);
 			}
 		}
 		else{
-			return rootNode.nodeName;
+			//log("\n" + indent + rootNode.nodeName);
 		}
 	};
 }
@@ -290,6 +297,7 @@ function getTokenStream(sourceCode: String){
 	
 	//Not currently reading in a "string literal"
 	var stringMode = false;
+	var currentDFA = DFA;
 	
 	//For each source code character...
 	for(var i = 0; i < sourceCode.length; i++){
@@ -401,7 +409,10 @@ function parseProgram(){
   if(match(["T_EOF"], false, false)) { 
 	programCount++;
 	log("Program " + programCount + "<br />"); 
-	log("Concrete Syntax Tree for Program " + programCount + ":<br />" + CST.toString(CST.root));
+	log("Concrete Syntax Tree for Program " + programCount + ":<br />");
+	CST.toString(CST.root, "-");
+	semanticAnalysis(CST);
+	//Next program
 	CST = new ConcreteSyntaxTree(null, null);
 	if(currentToken < tokens.length) { parseProgram(); } 
   }
@@ -434,7 +445,7 @@ function parseStatementList(){
     parseStatementList();
   }
   else{
-	//nothing, no statement. epsilon
+	//nothing, no statement. epsilon. add epsilon node for completeness
 	return;
   }
   log("Statement List");
@@ -692,6 +703,7 @@ function verboseToggle(){
 }
 
 var AST = new AbstractSyntaxTree();
+var SymbolTable = new SymbolTable();
 
 //The nodes that transfer from CST to AST
 var ASTNodes = {
@@ -709,18 +721,72 @@ var ASTNodes = {
 		
 	//leaves - values
 };
+
 /*Project 2 */
 //Step 3 - Input: CST, Output: AST
-function semanticAnalysis(){
+function semanticAnalysis(CST: ConcreteSyntaxTree){
+  buildAST(CST.root);
+  log("Abstract Syntax Tree for Program <>: <br />");
+  AST.toString(AST.root, "-");
+  //CST.root.children - if important, add branch or leaf to AST
   //traverse in order depth first CST and select important nodes
   //build AST with those
   //include subtree recipes of what to look for
-  //scope check
+  //scope check - w/ symbol table
   //type check
+  scopeAndTypeCheck(AST.root);
+}
+
+//next step: AST and symbol table classes like CST one. fix "inta" problem. report errors & warnings. cst duplication of nodes?
+function buildAST(root: CSTNode){
+	if (root.children.length > 0) {
+		for(i = 0; i < root.children.length; i++){
+			if(typeof ASTNodes[root.nodeName] !== "undefined"){
+				//add branch root.children[i]; 
+				if(ASTNodes[root.nodeName] === "Add"){
+					//do Add subtree routine
+				}
+				buildAST(root.children[i]);
+			}
+		}
+	}
+	else{
+		if(typeof ASTNodes[root.nodeName] !== "undefined"){
+			//add leaf root
+		}
+	}
+}
+
+function scopeAndTypeCheck(root: ASTNode){
+	if(root.nodeName === "Block"){
+		//new scope, set to current scope
+		//need to reset scope when done with this block... return to another scope. close scopes as you back out
+	}
+	else if(root.nodeName === "VariableDeclaration"){
+		//add new var to current scope in symbol table
+	}
+	else if(root.nodeName === "Assignment"){
+		//check if var exists in current scope in symbol table - and parent scope, if not
+		//check if type is correct
+	}
+	else if(root.nodeName === "Output"){
+		//check if var exists in current scope in symbol table - and parent scope, if not
+	}
+	else if(root.nodeName === "If" || root.nodeName === "While"){
+		//check if var exists in current scope in symbol table - and parent scope, if not
+		//check if types are comparable - not needed if simple "true" or "false" literal
+	}
+	else if(root.nodeName === "Add"){
+		//check if var exists in current scope in symbol table - and parent scope, if not
+		//check if type is intexp? check grammar
+	}	
+	else {
+		//recursion until done
+	}
 }
 
 /* Final project */
-//Step 4 - Input: AST, Output: Equivalent hex codes
+//Step 4 - Input: AST & symbol table, Output: Equivalent hex codes
 function codeGeneration(){
   //instruction selection
   //translate into hex/bin

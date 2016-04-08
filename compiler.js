@@ -36,6 +36,11 @@ var SymbolTableEntry = (function () {
     }
     return SymbolTableEntry;
 })();
+var AbstractSyntaxTree = (function () {
+    function AbstractSyntaxTree() {
+    }
+    return AbstractSyntaxTree;
+})();
 //The concrete syntax tree class.
 var ConcreteSyntaxTree = (function () {
     function ConcreteSyntaxTree(root, current) {
@@ -71,14 +76,15 @@ var ConcreteSyntaxTree = (function () {
         this.current = this.current.parent;
     };
     ;
-    ConcreteSyntaxTree.prototype.toString = function (rootNode) {
+    ConcreteSyntaxTree.prototype.toString = function (rootNode, indent) {
+        log("\n" + indent + rootNode.nodeName);
         if (rootNode.children.length > 0) {
             for (var i = 0; i < rootNode.children.length; i++) {
-                return this.toString(rootNode.children[i]) + "\\" + rootNode.children[i].nodeName;
+                this.toString(rootNode.children[i], indent + "-");
+                log("\n" + indent + rootNode.children[i].nodeName);
             }
         }
         else {
-            return rootNode.nodeName;
         }
     };
     ;
@@ -220,6 +226,35 @@ var DFA = { 's1': { '+': 's2',
     's78': { 'e': 's79' },
     's79': { 'accept': 'T_boolTrue' } //true
 };
+//A regex may be used here [a-z]
+var stringDFA = {
+    'a': { 'accept': 'char' },
+    'b': { 'accept': 'char' },
+    'c': { 'accept': 'char' },
+    'd': { 'accept': 'char' },
+    'e': { 'accept': 'char' },
+    'f': { 'accept': 'char' },
+    'g': { 'accept': 'char' },
+    'h': { 'accept': 'char' },
+    'i': { 'accept': 'char' },
+    'j': { 'accept': 'char' },
+    'k': { 'accept': 'char' },
+    'l': { 'accept': 'char' },
+    'm': { 'accept': 'char' },
+    'n': { 'accept': 'char' },
+    'o': { 'accept': 'char' },
+    'p': { 'accept': 'char' },
+    'q': { 'accept': 'char' },
+    'r': { 'accept': 'char' },
+    's': { 'accept': 'char' },
+    't': { 'accept': 'char' },
+    'u': { 'accept': 'char' },
+    'v': { 'accept': 'char' },
+    'w': { 'accept': 'char' },
+    'x': { 'accept': 'char' },
+    'y': { 'accept': 'char' },
+    'z': { 'accept': 'char' }
+};
 //Step 1
 //Lexical analysis: Constructs tokens and filters whitespace and bogus characters.
 //Takes in source code string, outputs array of tokens.
@@ -326,6 +361,7 @@ function parse() {
     document.getElementById('machine-code').innerHTML += logString + "Parse complete!";
     logString = "";
     programCount = 0;
+    semanticAnalysis();
 }
 //Ensure a program contains a block and ends with an EOF.
 //Continue to read in programs as long as there are more tokens after EOF.
@@ -336,7 +372,8 @@ function parseProgram() {
     if (match(["T_EOF"], false, false)) {
         programCount++;
         log("Program " + programCount + "<br />");
-        log("Concrete Syntax Tree for Program " + programCount + ":<br />" + CST.toString(CST.root));
+        log("Concrete Syntax Tree for Program " + programCount + ":<br />");
+        CST.toString(CST.root, "-");
         CST = new ConcreteSyntaxTree(null, null);
         if (currentToken < tokens.length) {
             parseProgram();
@@ -630,10 +667,21 @@ function verboseToggle() {
         lex(document.getElementById('source-code').value); //compile again with verbose on
     }
 }
-/*Project 2 and beyond!*/
+var AST = new AbstractSyntaxTree();
+//The nodes that transfer from CST to AST
+var ASTNodes = {};
+/*Project 2 */
 //Step 3 - Input: CST, Output: AST
 function semanticAnalysis() {
+    //traverse in order depth first CST and select important nodes
+    //build AST with those
+    //include subtree recipes of what to look for
+    //scope check
+    //type check
 }
+/* Final project */
 //Step 4 - Input: AST, Output: Equivalent hex codes
 function codeGeneration() {
+    //instruction selection
+    //translate into hex/bin
 }
