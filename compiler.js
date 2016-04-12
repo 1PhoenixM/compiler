@@ -28,19 +28,6 @@ var Token = (function () {
     }
     return Token;
 })();
-//The SymbolTableEntry class.
-var SymbolTableEntry = (function () {
-    function SymbolTableEntry(symbol) {
-        this.symbol = symbol;
-        this.symbol = symbol;
-    }
-    return SymbolTableEntry;
-})();
-var AbstractSyntaxTree = (function () {
-    function AbstractSyntaxTree() {
-    }
-    return AbstractSyntaxTree;
-})();
 //The concrete syntax tree class.
 var ConcreteSyntaxTree = (function () {
     function ConcreteSyntaxTree(root, current) {
@@ -126,6 +113,148 @@ var CSTLeafNode = (function (_super) {
     }
     return CSTLeafNode;
 })(CSTNode);
+//The abstract syntax tree class.
+var AbstractSyntaxTree = (function () {
+    function AbstractSyntaxTree(root, current) {
+        this.root = root;
+        this.current = current;
+        this.root = root;
+        this.current = current;
+    }
+    AbstractSyntaxTree.prototype.addBranchNode = function (nodeName) {
+        var n = new ASTBranchNode(nodeName, null, []);
+        if (this.root == null) {
+            this.root = n;
+            this.current = this.root;
+        }
+        else {
+            n.parent = this.current;
+            n.parent.children.push(n);
+            this.current = n;
+        }
+    };
+    ;
+    AbstractSyntaxTree.prototype.addLeafNode = function (nodeName) {
+        var n = new ASTLeafNode(nodeName, 'a', null, []);
+        n.parent = this.current;
+        n.parent.children.push(n);
+    };
+    ;
+    AbstractSyntaxTree.prototype.backtrack = function () {
+        this.current = this.current.parent;
+    };
+    ;
+    AbstractSyntaxTree.prototype.toString = function (rootNode, indent) {
+        log("\n" + indent + rootNode.nodeName);
+        if (rootNode.children.length > 0) {
+            for (var i = 0; i < rootNode.children.length; i++) {
+                this.toString(rootNode.children[i], indent + "-");
+                log("\n" + indent + rootNode.children[i].nodeName);
+            }
+        }
+        else {
+        }
+    };
+    ;
+    return AbstractSyntaxTree;
+})();
+//The abstract syntax tree node class.
+var ASTNode = (function () {
+    function ASTNode(nodeName, parent, children) {
+        this.nodeName = nodeName;
+        this.parent = parent;
+        this.children = children;
+        this.nodeName = nodeName;
+        this.parent = parent;
+        this.children = children;
+    }
+    return ASTNode;
+})();
+//The abstract syntax tree branch node class. Each represents an important AST branch node, in a subset of CSTNodes.
+var ASTBranchNode = (function (_super) {
+    __extends(ASTBranchNode, _super);
+    function ASTBranchNode(nodeName, parent, children) {
+        _super.call(this, nodeName, parent, children);
+        this.nodeName = nodeName;
+        this.parent = parent;
+        this.children = children;
+    }
+    return ASTBranchNode;
+})(ASTNode);
+//The abstract syntax tree leaf node class. Each represents a type, value, or variable.
+var ASTLeafNode = (function (_super) {
+    __extends(ASTLeafNode, _super);
+    function ASTLeafNode(nodeName, nodeVal, parent, children) {
+        _super.call(this, nodeName, parent, children);
+        this.nodeName = nodeName;
+        this.nodeVal = nodeVal;
+        this.parent = parent;
+        this.children = children;
+        this.nodeVal = nodeVal;
+    }
+    return ASTLeafNode;
+})(ASTNode);
+//The symbol table (tree of hash tables) class.
+var SymbolTable = (function () {
+    function SymbolTable(root, current) {
+        this.root = root;
+        this.current = current;
+        this.root = root;
+        this.current = current;
+    }
+    SymbolTable.prototype.addBranchNode = function (nodeName, nodeVal) {
+        var n = new SymbolTableNode(nodeName, nodeVal, null, []);
+        /*if(n.nodeName === "Program"){
+            this.root = n;
+            this.current = this.root;
+        }*/
+        n.parent = this.current;
+        n.parent.children.push(n);
+        this.current = n;
+    };
+    ;
+    SymbolTable.prototype.addLeafNode = function (nodeName, nodeVal) {
+        var n = new SymbolTableNode(nodeName, nodeVal, null, []);
+        if (n.nodeName === "Program") {
+        }
+        else {
+            n.parent = this.current;
+            n.parent.children.push(n);
+        }
+    };
+    ;
+    SymbolTable.prototype.backtrack = function () {
+        this.current = this.current.parent;
+    };
+    ;
+    SymbolTable.prototype.toString = function (rootNode, indent) {
+        log("\n" + indent + rootNode.nodeName);
+        if (rootNode.children.length > 0) {
+            for (var i = 0; i < rootNode.children.length; i++) {
+                this.toString(rootNode.children[i], indent + "-");
+                log("\n" + indent + rootNode.children[i].nodeName);
+            }
+        }
+        else {
+        }
+    };
+    ;
+    return SymbolTable;
+})();
+//The symbol table node class, for a hash table on one scope
+var SymbolTableNode = (function () {
+    function SymbolTableNode(nodeName, nodeVal, parent, children) {
+        this.nodeName = nodeName;
+        this.nodeVal = nodeVal;
+        this.parent = parent;
+        this.children = children;
+        this.nodeName = nodeName;
+        this.nodeVal = nodeVal;
+        this.parent = parent;
+        this.children = children;
+    }
+    return SymbolTableNode;
+})();
 //The deterministic finite automaton (used like a matrix)
 //Gives paths from state to state for accepted strings of characters.
 var DFA = { 's1': { '+': 's2',
@@ -288,6 +417,7 @@ function getTokenStream(sourceCode) {
     var lineNumber = 1;
     //Not currently reading in a "string literal"
     var stringMode = false;
+    var currentDFA = DFA;
     //For each source code character...
     for (var i = 0; i < sourceCode.length; i++) {
         //Get the character and the one after it
@@ -361,7 +491,7 @@ function parse() {
     document.getElementById('machine-code').innerHTML += logString + "Parse complete!";
     logString = "";
     programCount = 0;
-    semanticAnalysis();
+    semanticAnalysis(CST);
 }
 //Ensure a program contains a block and ends with an EOF.
 //Continue to read in programs as long as there are more tokens after EOF.
@@ -374,6 +504,8 @@ function parseProgram() {
         log("Program " + programCount + "<br />");
         log("Concrete Syntax Tree for Program " + programCount + ":<br />");
         CST.toString(CST.root, "-");
+        semanticAnalysis(CST);
+        //Next program
         CST = new ConcreteSyntaxTree(null, null);
         if (currentToken < tokens.length) {
             parseProgram();
@@ -408,7 +540,7 @@ function parseStatementList() {
         parseStatementList();
     }
     else {
-        //nothing, no statement. epsilon
+        //nothing, no statement. epsilon. add epsilon node for completeness
         return;
     }
     log("Statement List");
@@ -667,20 +799,76 @@ function verboseToggle() {
         lex(document.getElementById('source-code').value); //compile again with verbose on
     }
 }
-var AST = new AbstractSyntaxTree();
+var AST = new AbstractSyntaxTree(null, null);
+var SymbolTableInstance = new SymbolTable(null, null);
 //The nodes that transfer from CST to AST
+//Translates CST nodes into AST nodes
 var ASTNodes = {};
 /*Project 2 */
 //Step 3 - Input: CST, Output: AST
-function semanticAnalysis() {
+function semanticAnalysis(CST) {
+    buildAST(CST.root);
+    log("Abstract Syntax Tree for Program <>: <br />");
+    //AST.toString(AST.root, "-");
+    //CST.root.children - if important, add branch or leaf to AST
     //traverse in order depth first CST and select important nodes
     //build AST with those
     //include subtree recipes of what to look for
-    //scope check
+    //scope check - w/ symbol table
     //type check
+    //scopeAndTypeCheck(AST.root);
+}
+//next step: AST and symbol table classes like CST one. fix "inta" problem. report errors & warnings. cst duplication of nodes?
+function buildAST(root) {
+    if (root.children.length > 0) {
+        for (var i = 0; i < root.children.length; i++) {
+            if (typeof ASTNodes[root.children[i].nodeName] !== "undefined") {
+                AST.addBranchNode(root.children[i]);
+                if (ASTNodes[root.children[i].nodeName] === "Block") {
+                }
+                else if (ASTNodes[root.children[i].nodeName] === "VariableDeclaration") {
+                }
+                else if (ASTNodes[root.children[i].nodeName] === "Assignment") {
+                }
+                else if (ASTNodes[root.children[i].nodeName] === "Output") {
+                    for (var j = 0; j < root.children[i].children; j++) {
+                        if (root.children[i][j].nodeName === "Expression") {
+                        }
+                    }
+                }
+                else if (ASTNodes[root.children[i].nodeName] === "If" || ASTNodes[root.children[i].nodeName] === "While") {
+                }
+                else if (ASTNodes[root.children[i].nodeName] === "Add") {
+                }
+                buildAST(root.children[i]);
+            }
+        }
+    }
+    else {
+        if (typeof ASTNodes[root.nodeName] !== "undefined") {
+            AST.addLeafNode(root.nodeName);
+            AST.backtrack();
+        }
+    }
+}
+function scopeAndTypeCheck(root) {
+    if (root.nodeName === "Block") {
+    }
+    else if (root.nodeName === "VariableDeclaration") {
+    }
+    else if (root.nodeName === "Assignment") {
+    }
+    else if (root.nodeName === "Output") {
+    }
+    else if (root.nodeName === "If" || root.nodeName === "While") {
+    }
+    else if (root.nodeName === "Add") {
+    }
+    else {
+    }
 }
 /* Final project */
-//Step 4 - Input: AST, Output: Equivalent hex codes
+//Step 4 - Input: AST & symbol table, Output: Equivalent hex codes
 function codeGeneration() {
     //instruction selection
     //translate into hex/bin

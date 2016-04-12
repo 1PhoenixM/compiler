@@ -24,16 +24,9 @@ class Token{
     }
 }
 
-//The SymbolTableEntry class.
-class SymbolTableEntry{
-    constructor(public symbol){
-		this.symbol = symbol;
-    }
-}
-
-class AbstractSyntaxTree{
-	
-	
+//The TokenArray of Tokens.
+interface TokenArray{
+	[index: number]: Token;
 }
 
 //The concrete syntax tree class.
@@ -105,14 +98,124 @@ class CSTLeafNode extends CSTNode{
     }
 }
 
-//The SymbolTableArray of SymbolTableEntries.
-interface SymbolTableArray{
-	[index: number]: SymbolTableEntry;
+//The abstract syntax tree class.
+class AbstractSyntaxTree{
+	constructor(public root, public current){
+		this.root = root;
+		this.current = current;
+	}
+	addBranchNode(nodeName: string){
+		var n = new ASTBranchNode(nodeName, null, []);
+		if(this.root == null){
+			this.root = n;
+			this.current = this.root;
+		}
+		else{	
+			n.parent = this.current;
+			n.parent.children.push(n);
+			this.current = n;
+		}
+		
+	};
+	addLeafNode(nodeName: string){ //also value
+		var n = new ASTLeafNode(nodeName, 'a', null, []);
+		n.parent = this.current;
+		n.parent.children.push(n);
+	};
+	backtrack(){
+		this.current = this.current.parent;
+	};
+	toString(rootNode: ASTNode, indent: string){
+		log("\n" + indent + rootNode.nodeName);
+		if(rootNode.children.length > 0){
+			for(var i = 0; i < rootNode.children.length; i++){
+				this.toString(rootNode.children[i], indent+"-");
+				log("\n" + indent + rootNode.children[i].nodeName);
+			}
+		}
+		else{
+			//log("\n" + indent + rootNode.nodeName);
+		}
+	};
 }
 
-//The TokenArray of Tokens.
-interface TokenArray{
-	[index: number]: Token;
+//The abstract syntax tree node class.
+class ASTNode{
+	constructor(public nodeName, public parent, public children){
+		this.nodeName = nodeName; 
+		this.parent = parent;
+		this.children = children;
+    }
+}
+
+//The abstract syntax tree branch node class. Each represents an important AST branch node, in a subset of CSTNodes.
+class ASTBranchNode extends ASTNode{
+    constructor(public nodeName, public parent, public children){
+		super(nodeName, parent, children);
+    }
+}
+
+//The abstract syntax tree leaf node class. Each represents a type, value, or variable.
+class ASTLeafNode extends ASTNode{
+    constructor(public nodeName, public nodeVal, public parent, public children){
+		super(nodeName, parent, children);
+		this.nodeVal = nodeVal;
+    }
+}
+
+//The symbol table (tree of hash tables) class.
+class SymbolTable{
+	constructor(public root, public current){
+		this.root = root;
+		this.current = current;
+	}
+	addBranchNode(nodeName: string, nodeVal: string){
+		var n = new SymbolTableNode(nodeName, nodeVal, null, []);
+		/*if(n.nodeName === "Program"){
+			this.root = n;
+			this.current = this.root;
+		}*/
+		
+			n.parent = this.current;
+			n.parent.children.push(n);
+			this.current = n;
+		
+	};
+	addLeafNode(nodeName: string, nodeVal: string){
+		var n = new SymbolTableNode(nodeName, nodeVal, null, []);
+		if(n.nodeName === "Program"){
+			//error
+		}
+		else{
+			n.parent = this.current;
+			n.parent.children.push(n);
+		}
+	};
+	backtrack(){
+		this.current = this.current.parent;
+	};
+	toString(rootNode: SymbolTableNode, indent: string){
+		log("\n" + indent + rootNode.nodeName);
+		if(rootNode.children.length > 0){
+			for(var i = 0; i < rootNode.children.length; i++){
+				this.toString(rootNode.children[i], indent+"-");
+				log("\n" + indent + rootNode.children[i].nodeName);
+			}
+		}
+		else{
+			//log("\n" + indent + rootNode.nodeName);
+		}
+	};
+}
+
+//The symbol table node class, for a hash table on one scope
+class SymbolTableNode{
+	constructor(public nodeName, public nodeVal, public parent, public children){
+		this.nodeName = nodeName; 
+		this.nodeVal = nodeVal;
+		this.parent = parent;
+		this.children = children;
+    }
 }
 
 //The deterministic finite automaton (used like a matrix)
@@ -397,7 +500,7 @@ function parse(){
    document.getElementById('machine-code').innerHTML += logString + "Parse complete!";
    logString = "";
    programCount = 0;
-   semanticAnalysis();
+   semanticAnalysis(CST);
 }
 
 //Ensure a program contains a block and ends with an EOF.
@@ -702,22 +805,23 @@ function verboseToggle(){
 	}
 }
 
-var AST = new AbstractSyntaxTree();
-var SymbolTable = new SymbolTable();
+var AST = new AbstractSyntaxTree(null, null);
+var SymbolTableInstance = new SymbolTable(null, null);
 
 //The nodes that transfer from CST to AST
+//Translates CST nodes into AST nodes
 var ASTNodes = {
-	// + -> add (intexpr + intexpr)
-	// print -> output (expr)
-	// == -> isEqualTo (expr == expr)
-	// != -> isNotEqualTo (expr != expr)
+	// t_intop + -> add (intexpr + intexpr)
+	// PrintStatement print -> output (expr)
+	// t_boolop == -> isEqualTo (expr == expr)
+	// t_boolop != -> isNotEqualTo (expr != expr)
 	// true -> isTrue ()
 	// false -> isFalse ()
-	// { } -> newScope (statements)
-	// = -> assign (id + expr)
-	// int,string,boolean -> vardecl (type + id)
-	// if -> if (cond + scope/block)
-	// while -> while (cond + scope/block)
+	// Block { } -> newScope (statements)
+	// AssignmentStatement = -> assign (id + expr)
+	// t_type? int,string,boolean -> vardecl (type + id)
+	// IfStatement if -> if (cond + scope/block)
+	// WhileStatement while -> while (cond + scope/block)
 		
 	//leaves - values
 };
@@ -727,24 +831,51 @@ var ASTNodes = {
 function semanticAnalysis(CST: ConcreteSyntaxTree){
   buildAST(CST.root);
   log("Abstract Syntax Tree for Program <>: <br />");
-  AST.toString(AST.root, "-");
+  
+  //AST.toString(AST.root, "-");
+  
   //CST.root.children - if important, add branch or leaf to AST
   //traverse in order depth first CST and select important nodes
   //build AST with those
   //include subtree recipes of what to look for
   //scope check - w/ symbol table
   //type check
-  scopeAndTypeCheck(AST.root);
+  
+  //scopeAndTypeCheck(AST.root);
 }
 
 //next step: AST and symbol table classes like CST one. fix "inta" problem. report errors & warnings. cst duplication of nodes?
 function buildAST(root: CSTNode){
 	if (root.children.length > 0) {
-		for(i = 0; i < root.children.length; i++){
-			if(typeof ASTNodes[root.nodeName] !== "undefined"){
-				//add branch root.children[i]; 
-				if(ASTNodes[root.nodeName] === "Add"){
+		for(var i = 0; i < root.children.length; i++){
+			if(typeof ASTNodes[root.children[i].nodeName] !== "undefined"){ 
+				AST.addBranchNode(root.children[i]);
+				if(ASTNodes[root.children[i].nodeName] === "Block"){
+					//StatementList -> a Statement and another StatementList which may or may not be empty
+					//Statement is some kind of Statement that translates to an AST node...
+				}
+				else if(ASTNodes[root.children[i].nodeName] === "VariableDeclaration"){
+					//has a t_type? child and an ID -> t_char
+				}
+				else if(ASTNodes[root.children[i].nodeName] === "Assignment"){
+					//has an ID -> t_char and an Expression which is some kind of Expression
+				}
+				else if(ASTNodes[root.children[i].nodeName] === "Output"){
+					for(var j = 0; j < root.children[i].children; j++){
+						if(root.children[i][j].nodeName === "Expression"){
+							//find leaf of expression
+						}
+					}
+					//has an Expression child
+				}
+				else if(ASTNodes[root.children[i].nodeName] === "If" || ASTNodes[root.children[i].nodeName] === "While"){
+					//has a BooleanExpression -> with TWO Expressions and a T_boolop. and a Block.
+					//to do: token differentiation between !== and ==. store values in symbol table
+				}
+				else if(ASTNodes[root.children[i].nodeName] === "Add"){
 					//do Add subtree routine
+					//IntegerExpression -> with children t_digit, t_intop, and t_expression.
+					//t_expression is then another t_integerexpression which has a t_digit...
 				}
 				buildAST(root.children[i]);
 			}
@@ -752,7 +883,8 @@ function buildAST(root: CSTNode){
 	}
 	else{
 		if(typeof ASTNodes[root.nodeName] !== "undefined"){
-			//add leaf root
+			AST.addLeafNode(root.nodeName);
+			AST.backtrack();
 		}
 	}
 }
@@ -774,7 +906,8 @@ function scopeAndTypeCheck(root: ASTNode){
 	}
 	else if(root.nodeName === "If" || root.nodeName === "While"){
 		//check if var exists in current scope in symbol table - and parent scope, if not
-		//check if types are comparable - not needed if simple "true" or "false" literal
+		//check if types are comparable - not needed if simple "true" or "false" literal.
+		//could be eq, noteq, true, false
 	}
 	else if(root.nodeName === "Add"){
 		//check if var exists in current scope in symbol table - and parent scope, if not
