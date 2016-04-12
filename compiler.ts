@@ -861,11 +861,12 @@ function buildAST(root: CSTNode){
 					//has an ID -> t_char and an Expression which is some kind of Expression
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "Output"){
-					for(var j = 0; j < root.children[i].children; j++){
+					/*for(var j = 0; j < root.children[i].children; j++){
 						if(root.children[i][j].nodeName === "Expression"){
 							//find leaf of expression
 						}
-					}
+					}*/ //search for expression? or expect a certain child index?
+					//root.children[i][2][0][0]; //2 for the expression, 0 for type of expression, 0 for leaf
 					//has an Expression child
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "If" || ASTNodes[root.children[i].nodeName] === "While"){
