@@ -357,32 +357,36 @@ var DFA = { 's1': { '+': 's2',
 };
 //A regex may be used here [a-z]
 var stringDFA = {
-    'a': { 'accept': 'char' },
-    'b': { 'accept': 'char' },
-    'c': { 'accept': 'char' },
-    'd': { 'accept': 'char' },
-    'e': { 'accept': 'char' },
-    'f': { 'accept': 'char' },
-    'g': { 'accept': 'char' },
-    'h': { 'accept': 'char' },
-    'i': { 'accept': 'char' },
-    'j': { 'accept': 'char' },
-    'k': { 'accept': 'char' },
-    'l': { 'accept': 'char' },
-    'm': { 'accept': 'char' },
-    'n': { 'accept': 'char' },
-    'o': { 'accept': 'char' },
-    'p': { 'accept': 'char' },
-    'q': { 'accept': 'char' },
-    'r': { 'accept': 'char' },
-    's': { 'accept': 'char' },
-    't': { 'accept': 'char' },
-    'u': { 'accept': 'char' },
-    'v': { 'accept': 'char' },
-    'w': { 'accept': 'char' },
-    'x': { 'accept': 'char' },
-    'y': { 'accept': 'char' },
-    'z': { 'accept': 'char' }
+    's1': { 'a': 's2',
+        'b': 's2',
+        'c': 's2',
+        'd': 's2',
+        'e': 's2',
+        'f': 's2',
+        'g': 's2',
+        'h': 's2',
+        'i': 's2',
+        'j': 's2',
+        'k': 's2',
+        'l': 's2',
+        'm': 's2',
+        'n': 's2',
+        'o': 's2',
+        'p': 's2',
+        'q': 's2',
+        'r': 's2',
+        's': 's2',
+        't': 's2',
+        'u': 's2',
+        'v': 's2',
+        'w': 's2',
+        'x': 's2',
+        'y': 's2',
+        'z': 's2',
+        '"': 's3'
+    },
+    's2': { 'accept': 'T_char' },
+    's3': { 'accept': 'T_quoteString' }
 };
 //Step 1
 //Lexical analysis: Constructs tokens and filters whitespace and bogus characters.
@@ -417,7 +421,13 @@ function getTokenStream(sourceCode) {
     var lineNumber = 1;
     //Not currently reading in a "string literal"
     var stringMode = false;
-    var currentDFA = DFA;
+    var DFAtype = (function () {
+        function DFAtype() {
+        }
+        return DFAtype;
+    })();
+    var currentDFA = new DFAtype();
+    currentDFA = DFA;
     //For each source code character...
     for (var i = 0; i < sourceCode.length; i++) {
         //Get the character and the one after it
@@ -429,7 +439,7 @@ function getTokenStream(sourceCode) {
         }
         else {
             //Based on current state and current character, get the next state
-            state = DFA[state][c];
+            state = currentDFA[state][c];
             //If there is no next state, the string is illegal
             if (typeof state === "undefined") {
                 var t = new Token("T_unknown", currentString, lineNumber);
@@ -437,24 +447,30 @@ function getTokenStream(sourceCode) {
                 return tokens;
             }
             //If this is an accepting state and there is no path to continue from here, create a token
-            if ((DFA[state]['accept'] !== null) && (typeof DFA[state][cnext] === "undefined" || cnext === '' || cnext === ' ')) {
+            if ((currentDFA[state]['accept'] !== null) && (typeof currentDFA[state][cnext] === "undefined" || cnext === '' || cnext === ' ')) {
                 //&& DFA[state][cnext] === null && DFA[state][cnext]['accept'] === null //try-catch here
                 //Add to current string
                 currentString += c;
                 //Other check for illegality
-                if (typeof DFA[state] !== "undefined") {
+                if (typeof currentDFA[state] !== "undefined") {
                     //If found a space and NOT reading in a "string literal"
-                    if (DFA[state]['accept'] === "T_space" && !stringMode) {
+                    if (currentDFA[state]['accept'] === "T_space" && !stringMode) {
                     }
-                    else if (DFA[state]['accept'] === "T_quoteString") {
+                    else if (currentDFA[state]['accept'] === "T_quoteString") {
                         //Make a new token and add it
-                        var t = new Token(DFA[state]['accept'], currentString, lineNumber);
+                        var t = new Token(currentDFA[state]['accept'], currentString, lineNumber);
                         //If string mode is off, set it to on. If string mode is on, set it to off.
                         stringMode = stringMode ? false : true;
+                        if (stringMode) {
+                            currentDFA = stringDFA;
+                        }
+                        else {
+                            currentDFA = DFA;
+                        }
                         tokens.push(t);
                     }
                     else {
-                        var t = new Token(DFA[state]['accept'], currentString, lineNumber);
+                        var t = new Token(currentDFA[state]['accept'], currentString, lineNumber);
                         tokens.push(t);
                     }
                 }
@@ -831,10 +847,6 @@ function buildAST(root) {
                 else if (ASTNodes[root.children[i].nodeName] === "Assignment") {
                 }
                 else if (ASTNodes[root.children[i].nodeName] === "Output") {
-                    for (var j = 0; j < root.children[i].children; j++) {
-                        if (root.children[i][j].nodeName === "Expression") {
-                        }
-                    }
                 }
                 else if (ASTNodes[root.children[i].nodeName] === "If" || ASTNodes[root.children[i].nodeName] === "While") {
                 }
@@ -851,18 +863,30 @@ function buildAST(root) {
         }
     }
 }
+var currentScope = 0;
 function scopeAndTypeCheck(root) {
     if (root.nodeName === "Block") {
+        for (var i = 0; i < root.children.length; i++) {
+            scopeAndTypeCheck(root.children[i]);
+        }
     }
     else if (root.nodeName === "VariableDeclaration") {
+        currentScope.addVariable(root.children[0], root.children[1]);
     }
     else if (root.nodeName === "Assignment") {
+        currentScope.find(root.children[0]); //else search parent scope
+        type = scope.getType(root.children[0]);
     }
     else if (root.nodeName === "Output") {
+        currentScope.find(root.children[0]); //else search parent scope
     }
     else if (root.nodeName === "If" || root.nodeName === "While") {
+        scopeAndTypeCheck(root.children[0]);
+        scopeAndTypeCheck(root.children[1]);
     }
-    else if (root.nodeName === "Add") {
+    else if (root.nodeName === "CompareTest") {
+        currentScope.find(root.children[0]); //else search parent scope
+        type = scope.getType(root.children[0]);
     }
     else {
     }
