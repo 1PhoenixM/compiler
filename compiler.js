@@ -964,11 +964,11 @@ function scopeAndTypeCheck(root) {
         }
     }
     else if (root.nodeName === "VariableDeclaration") {
-        currentScope.addVariable(root.children[0].nodeVal, root.children[1].nodeVal);
+        currentScope.addVariable(root.children[0], root.children[1]);
     }
     else if (root.nodeName === "Assignment") {
-        var isFound = currentScope.find(root.children[0].nodeVal); //else search parent scope
-        var type = currentScope.getType(root.children[0].nodeVal);
+        var isFound = currentScope.find(root.children[0]); //else search parent scope
+        var type = currentScope.getType(root.children[0]);
         //does value (root.children[1]) match int (0-9), string ("") or boolean (T/F)? also a = a
         //check if var exists in current scope in symbol table - and parent scope, if not
         //check if type is correct
@@ -984,7 +984,7 @@ function scopeAndTypeCheck(root) {
         //check if var exists in current scope in symbol table - and parent scope, if not
         for (var i = 0; i < root.children.length; i++) {
             if (root.children[i].nodeName === "Character") {
-                isFound = currentScope.find(root.children[0].nodeVal);
+                isFound = currentScope.find(root.children[0]);
             }
         }
         if (!isFound) {
@@ -992,12 +992,12 @@ function scopeAndTypeCheck(root) {
         }
     }
     else if (root.nodeName === "If" || root.nodeName === "While") {
-        scopeAndTypeCheck(root.children[0].nodeVal);
-        scopeAndTypeCheck(root.children[1].nodeVal);
+        scopeAndTypeCheck(root.children[0]);
+        scopeAndTypeCheck(root.children[1]);
     }
     else if (root.nodeName === "CompareTest") {
-        var isFound = currentScope.find(root.children[0].nodeVal); //else search parent scope
-        var type = currentScope.getType(root.children[0].nodeVal);
+        var isFound = currentScope.find(root.children[0]); //else search parent scope
+        var type = currentScope.getType(root.children[0]);
         if (!isFound) {
             log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
         }
