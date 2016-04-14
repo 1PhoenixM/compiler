@@ -258,6 +258,10 @@ class SymbolTableNode{
 	getType(symbol: ASTLeafNode){
 		return this.map[symbol.nodeVal];
 	}
+	
+	toString(){
+		log("<br />" + "Symbol Table" + "<br />" + JSON.stringify(this.map));
+	}
 }
 
 //The deterministic finite automaton (used like a matrix)
@@ -922,6 +926,7 @@ function semanticAnalysis(CST: ConcreteSyntaxTree){
   buildAST(CST.root, 0);
   log("Abstract Syntax Tree for Program <>: <br />");
   AST.toString(AST.root, "-");
+  currentScope.toString();
   scopeAndTypeCheck(AST.root);
   //reset these
   AST = new AbstractSyntaxTree(null, null);

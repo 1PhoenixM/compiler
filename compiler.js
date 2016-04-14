@@ -281,6 +281,9 @@ var SymbolTableNode = (function () {
     SymbolTableNode.prototype.getType = function (symbol) {
         return this.map[symbol.nodeVal];
     };
+    SymbolTableNode.prototype.toString = function () {
+        log("<br />" + "Symbol Table" + "<br />" + JSON.stringify(this.map));
+    };
     return SymbolTableNode;
 })();
 //The deterministic finite automaton (used like a matrix)
@@ -881,6 +884,7 @@ function semanticAnalysis(CST) {
     buildAST(CST.root, 0);
     log("Abstract Syntax Tree for Program <>: <br />");
     AST.toString(AST.root, "-");
+    currentScope.toString();
     scopeAndTypeCheck(AST.root);
     //reset these
     AST = new AbstractSyntaxTree(null, null);
