@@ -31,10 +31,14 @@ interface TokenArray{
 
 //The concrete syntax tree class.
 class ConcreteSyntaxTree{
+	
+	//Makes a new CST
 	constructor(public root, public current){
 		this.root = root;
 		this.current = current;
 	}
+	
+	//Adds a branch node to a CST
 	addBranchNode(nodeName: string){
 		var n = new CSTBranchNode(nodeName, null, []);
 		if(n.nodeName === "Program"){
@@ -47,6 +51,8 @@ class ConcreteSyntaxTree{
 			this.current = n;
 		}
 	};
+	
+	//Adds a leaf node to a CST
 	addLeafNode(nodeName: string, nodeVal: string){
 		var n = new CSTLeafNode(nodeName, nodeVal, null, []);
 		if(n.nodeName === "Program"){
@@ -57,9 +63,13 @@ class ConcreteSyntaxTree{
 			n.parent.children.push(n);
 		}
 	};
+	
+	//Backtracks the tree
 	backtrack(){
 		this.current = this.current.parent;
 	};
+	
+	//Prints the tree
 	toString(rootNode: CSTNode, indent: string){
 		log("\n" + indent + rootNode.nodeName);
 		if(rootNode.children.length > 0){
@@ -74,7 +84,7 @@ class ConcreteSyntaxTree{
 	};
 }
 
-//The concrete syntax tree node class.
+//The concrete syntax tree node class. Each node has a name, a parent, and an array of children.
 class CSTNode{
 	constructor(public nodeName, public parent, public children){
 		this.nodeName = nodeName; 
@@ -100,10 +110,14 @@ class CSTLeafNode extends CSTNode{
 
 //The abstract syntax tree class.
 class AbstractSyntaxTree{
+	
+	//Creates a new AST
 	constructor(public root, public current){
 		this.root = root;
 		this.current = current;
 	}
+	
+	//Adds an AST branch node
 	addBranchNode(nodeName: string){
 		var n = new ASTBranchNode(nodeName, null, []);
 		if(this.root == null){
@@ -117,14 +131,20 @@ class AbstractSyntaxTree{
 		}
 		
 	};
+	
+	//Adds an AST leaf node
 	addLeafNode(nodeName: string){ //also value
 		var n = new ASTLeafNode(nodeName, 'a', null, []);
 		n.parent = this.current;
 		n.parent.children.push(n);
 	};
+	
+	//Backtracks the tree
 	backtrack(){
 		this.current = this.current.parent;
 	};
+	
+	//Prints the tree
 	toString(rootNode: ASTNode, indent: string){
 		log("\n" + indent + rootNode.nodeName);
 		if(rootNode.children.length > 0){
@@ -139,7 +159,7 @@ class AbstractSyntaxTree{
 	};
 }
 
-//The abstract syntax tree node class.
+//The abstract syntax tree node class. Each has a name, a parent, and an array of children.
 class ASTNode{
 	constructor(public nodeName, public parent, public children){
 		this.nodeName = nodeName; 
@@ -165,12 +185,16 @@ class ASTLeafNode extends ASTNode{
 
 //The symbol table (tree of hash tables) class.
 class SymbolTable{
+	
+	//Creates a new Symbol Table tree.
 	constructor(public root, public current){
 		this.root = root;
 		this.current = current;
 	}
+	
+	//Adds a new scope.
 	addBranchNode(nodeName: string, nodeVal: string){
-		var n = new SymbolTableNode(nodeName, nodeVal, null, []);
+		var n = new SymbolTableNode(nodeName, nodeVal, {}, null, []);
 		/*if(n.nodeName === "Program"){
 			this.root = n;
 			this.current = this.root;
@@ -182,7 +206,7 @@ class SymbolTable{
 		
 	};
 	addLeafNode(nodeName: string, nodeVal: string){
-		var n = new SymbolTableNode(nodeName, nodeVal, null, []);
+		var n = new SymbolTableNode(nodeName, nodeVal, {}, null, []);
 		if(n.nodeName === "Program"){
 			//error
 		}
@@ -210,12 +234,30 @@ class SymbolTable{
 
 //The symbol table node class, for a hash table on one scope
 class SymbolTableNode{
-	constructor(public nodeName, public nodeVal, public parent, public children){
+	constructor(public nodeName, public nodeVal, public map, public parent, public children){
 		this.nodeName = nodeName; 
 		this.nodeVal = nodeVal;
+		this.map = map;
 		this.parent = parent;
 		this.children = children;
     }
+	
+	addVariable(symbol: ASTLeafNode, type: ASTLeafNode){
+		this.map[symbol.nodeVal] = type.nodeVal; 
+	}
+	
+	find(symbol: ASTLeafNode){
+		if(typeof this.map[symbol.nodeVal] !== undefined){
+			return true;
+		}
+		else{
+			return false;
+		}
+	}
+	
+	getType(symbol: ASTLeafNode){
+		return this.map[symbol.nodeVal];
+	}
 }
 
 //The deterministic finite automaton (used like a matrix)
@@ -328,7 +370,7 @@ var DFA = {'s1' : {'+': 's2',
 		
 	    };
 		
-//A regex may be used here [a-z]
+//Special DFA used only for strings.
 var stringDFA = {
 	's1': {'a': 's2',
 	'b': 's2',
@@ -366,23 +408,29 @@ var stringDFA = {
 //Lexical analysis: Constructs tokens and filters whitespace and bogus characters.
 //Takes in source code string, outputs array of tokens.
 function lex(sourceCode: string){
+	
+  //Turn the source code into tokens.
   tokens = getTokenStream(sourceCode);
   
   //Clear log area and print tokens + completion message
   document.getElementById('machine-code').innerHTML = "";
+  
+  //If there are tokens...
   if(tokens !== []){  
+	  //Print each token found
 	  if(verboseMode){
 		  for(var i = 0; i < tokens.length; i++){
 			document.getElementById('machine-code').innerHTML += tokens[i].tokenName + " is a " + tokens[i].tokenKind + " on line " + tokens[i].tokenLineNumber + "<br />";
 		  }
 	  }
+	  //Lex complete.
 	  document.getElementById('machine-code').innerHTML += "Lex complete!" + "<br />";
 	  
-	  //On to parse step
+	  //On to parse step...
 	  parse();
   }
   
-  //If tokens is empty, an error occurred
+  //If tokens is empty, an error occurred.
   else{
 	  document.getElementById('machine-code').innerHTML += "Lexical error!";
   }
@@ -396,7 +444,7 @@ function getTokenStream(sourceCode: String){
 	//Clear tokens
 	var tokens = [];
 	
-	//Start with empty string
+	//Start with empty string to track keywords
 	var currentString = "";
 	
 	//Line number count starts at 1
@@ -405,10 +453,13 @@ function getTokenStream(sourceCode: String){
 	//Not currently reading in a "string literal"
 	var stringMode = false;
 	
+	//We use two different DFAs, one regular one and one for string literals.
+	//Both start with state s1.
 	class DFAtype {
 		s1: any;
 	}
 	
+	//The current DFA is the default one. Will switch to the string DFA if needed.
 	var currentDFA = new DFAtype();
 	currentDFA = DFA;
 	
@@ -419,7 +470,7 @@ function getTokenStream(sourceCode: String){
 		var c = sourceCode.charAt(i);
 		var cnext = sourceCode.charAt(i+1);
 		
-		//If newline, just move on to a new line
+		//If newline, add to line number count
 		if(c == "\n"){
 			lineNumber++;
 		}
@@ -462,6 +513,7 @@ function getTokenStream(sourceCode: String){
 						//If string mode is off, set it to on. If string mode is on, set it to off.
 						stringMode = stringMode ? false : true;
 						
+						//Switch to the DFA for reading in strings, or the default one.
 						if(stringMode){
 							currentDFA = stringDFA;
 						}
@@ -518,7 +570,7 @@ function parse(){
    document.getElementById('machine-code').innerHTML += logString + "Parse complete!";
    logString = "";
    programCount = 0;
-   semanticAnalysis(CST);
+   //semanticAnalysis(CST);
 }
 
 //Ensure a program contains a block and ends with an EOF.
@@ -823,12 +875,26 @@ function verboseToggle(){
 	}
 }
 
+/* Project Two */
+//The abstract syntax tree
 var AST = new AbstractSyntaxTree(null, null);
+
+//The symbol table (tree)
 var SymbolTableInstance = new SymbolTable(null, null);
 
 //The nodes that transfer from CST to AST
-//Translates CST nodes into AST nodes
+//Translates CST nodes into AST nodes.
 var ASTNodes = {
+	't_intop': 'Add', 
+	'PrintStatement': 'Output', //more abstract
+	't_boolop': 'CompareTest',
+	't_boolTrue': 'BooleanTrue',
+	't_boolFalse': 'BooleanFalse',
+	'Block': 'Block',
+	'AssignmentStatement': 'Assignment',
+	'VariableDeclarationStatement': 'VariableDeclaration',
+	'IfStatement': 'If',
+	'WhileStatement': 'While'
 	// t_intop + -> add (intexpr + intexpr)
 	// PrintStatement print -> output (expr)
 	// t_boolop == -> isEqualTo (expr == expr)
@@ -837,7 +903,7 @@ var ASTNodes = {
 	// false -> isFalse ()
 	// Block { } -> newScope (statements)
 	// AssignmentStatement = -> assign (id + expr)
-	// t_type? int,string,boolean -> vardecl (type + id)
+	// VariableDeclarationStatement t_type? int,string,boolean -> vardecl (type + id)
 	// IfStatement if -> if (cond + scope/block)
 	// WhileStatement while -> while (cond + scope/block)
 		
@@ -847,10 +913,10 @@ var ASTNodes = {
 /*Project 2 */
 //Step 3 - Input: CST, Output: AST
 function semanticAnalysis(CST: ConcreteSyntaxTree){
-  buildAST(CST.root);
+  buildAST(CST.root, 0);
   log("Abstract Syntax Tree for Program <>: <br />");
-  
-  //AST.toString(AST.root, "-");
+  AST.toString(AST.root, "-");
+  scopeAndTypeCheck(AST.root);
   
   //CST.root.children - if important, add branch or leaf to AST
   //traverse in order depth first CST and select important nodes
@@ -859,24 +925,30 @@ function semanticAnalysis(CST: ConcreteSyntaxTree){
   //scope check - w/ symbol table
   //type check
   
-  //scopeAndTypeCheck(AST.root);
 }
 
-//next step: AST and symbol table classes like CST one. fix "inta" problem. report errors & warnings. cst duplication of nodes?
-function buildAST(root: CSTNode){
+//next step: AST and symbol table classes like CST one. report errors & warnings. cst duplication of nodes?
+//recursive calls need to remember which child (leaf) was evaluated last and continue from there
+function buildAST(root: CSTNode, childNumber: number){
 	if (root.children.length > 0) {
-		for(var i = 0; i < root.children.length; i++){
-			if(typeof ASTNodes[root.children[i].nodeName] !== "undefined"){ 
-				AST.addBranchNode(root.children[i]);
+		for(var i = childNumber; i < root.children.length; i++){
+			if(typeof ASTNodes[root.children[i].nodeName] !== "undefined"){
+				//Rename from CST to AST nodeName
+				AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
+				
 				if(ASTNodes[root.children[i].nodeName] === "Block"){
 					//StatementList -> a Statement and another StatementList which may or may not be empty
 					//Statement is some kind of Statement that translates to an AST node...
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "VariableDeclaration"){
 					//has a t_type? child and an ID -> t_char
+					AST.addLeafNode(root.children[i].children[0]);
+					AST.addLeafNode(root.children[i].children[1].children[0]);
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "Assignment"){
 					//has an ID -> t_char and an Expression which is some kind of Expression
+					AST.addLeafNode(root.children[i].children[1].children[0]);
+					AST.addLeafNode(root.children[i].children[0].children[0].children[0]);
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "Output"){
 					/*for(var j = 0; j < root.children[i].children; j++){
@@ -886,18 +958,24 @@ function buildAST(root: CSTNode){
 					}*/ //search for expression? or expect a certain child index?
 					//root.children[i][2][0][0]; //2 for the expression, 0 for type of expression, 0 for leaf
 					//has an Expression child
+					AST.addLeafNode(root.children[i].children[0].children[2].children[0].children[0]);
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "If" || ASTNodes[root.children[i].nodeName] === "While"){
 					//has a BooleanExpression -> with TWO Expressions and a T_boolop. and a Block.
 					//to do: token differentiation between !== and ==. store values in symbol table
+					AST.addBranchNode("CompareTest");
+					AST.addLeafNode(root.children[i].children[1].children[0]);
+					AST.addLeafNode(root.children[i].children[0].children[0].children[0]);
+					AST.addBranchNode("Block");
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "Add"){
 					//do Add subtree routine
 					//IntegerExpression -> with children t_digit, t_intop, and t_expression.
 					//t_expression is then another t_integerexpression which has a t_digit...
 				}
-				buildAST(root.children[i]);
+				
 			}
+			buildAST(root.children[i], i);
 		}
 	}
 	else{
@@ -905,11 +983,14 @@ function buildAST(root: CSTNode){
 			AST.addLeafNode(root.nodeName);
 			AST.backtrack();
 		}
+		buildAST(root.parent, childNumber+1); //check next child
 	}
 }
 
-var currentScope = 0;
+//Create new current scope
+var currentScope = new SymbolTableNode('Scope', '0', {}, null, []);
 
+//Traverses AST and builds symbol table, while checking for scope and type errors
 function scopeAndTypeCheck(root: ASTNode){
 	if(root.nodeName === "Block"){
 		for(var i = 0; i < root.children.length; i++){
@@ -924,25 +1005,30 @@ function scopeAndTypeCheck(root: ASTNode){
 	}
 	else if(root.nodeName === "Assignment"){
 		currentScope.find(root.children[0]); //else search parent scope
-		type = scope.getType(root.children[0]);
+		var type = currentScope.getType(root.children[0]);
 		//does value (root.children[1]) match int (0-9), string ("") or boolean (T/F)? also a = a
 		//check if var exists in current scope in symbol table - and parent scope, if not
 		//check if type is correct
+		log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
+		log("Semantic Analysis Error - Variable " + root.children[0] + " is of type " + type + " and cannot be set to " + root.children[1]);
 	}
 	else if(root.nodeName === "Output"){
 		currentScope.find(root.children[0]); //else search parent scope
 		//check if var exists in current scope in symbol table - and parent scope, if not
+		log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
 	}
 	else if(root.nodeName === "If" || root.nodeName === "While"){
 		scopeAndTypeCheck(root.children[0]);
 		scopeAndTypeCheck(root.children[1]);
-		//check if var exists in current scope in symbol table - and parent scope, if not
+		//check if var exists in current scope in symbol table - and parent scope, if not - a != a
 		//check if types are comparable - not needed if simple "true" or "false" literal.
 		//could be eq, noteq, true, false
 	}
 	else if(root.nodeName === "CompareTest"){
 		currentScope.find(root.children[0]); //else search parent scope
-		type = scope.getType(root.children[0]);
+		var type = currentScope.getType(root.children[0]);
+		log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
+		log("Semantic Analysis Error - Variable " + root.children[0] + " is of type " + type + " and cannot be compared to " + root.children[1]);
 	}
 	/*else if(root.nodeName === "Add"){
 		
