@@ -856,6 +856,8 @@ function verboseToggle() {
 var AST = new AbstractSyntaxTree(null, null);
 //The symbol table (tree)
 var SymbolTableInstance = new SymbolTable(null, null);
+//Create new current scope
+var currentScope = new SymbolTableNode('Scope', '0', {}, null, []);
 //The nodes that transfer from CST to AST
 //Translates CST nodes into AST nodes.
 var ASTNodes = {
@@ -868,7 +870,10 @@ var ASTNodes = {
     'AssignmentStatement': 'Assignment',
     'VariableDeclarationStatement': 'VariableDeclaration',
     'IfStatement': 'If',
-    'WhileStatement': 'While'
+    'WhileStatement': 'While',
+    't_char': 'Character',
+    'CharList': 'String',
+    't_digit': 'Number'
 };
 /*Project 2 */
 //Step 3 - Input: CST, Output: AST
@@ -877,6 +882,12 @@ function semanticAnalysis(CST) {
     log("Abstract Syntax Tree for Program <>: <br />");
     AST.toString(AST.root, "-");
     scopeAndTypeCheck(AST.root);
+    //reset these
+    AST = new AbstractSyntaxTree(null, null);
+    SymbolTableInstance = new SymbolTable(null, null);
+    currentScope = new SymbolTableNode('Scope', '0', {}, null, []);
+    log("Semantic Analysis complete!");
+    codeGeneration();
     //CST.root.children - if important, add branch or leaf to AST
     //traverse in order depth first CST and select important nodes
     //build AST with those
@@ -887,8 +898,8 @@ function semanticAnalysis(CST) {
 //next step: AST and symbol table classes like CST one. report errors & warnings. cst duplication of nodes?
 //recursive calls need to remember which child (leaf) was evaluated last and continue from there
 function buildAST(root, childNumber) {
-    if (root.children.length > 0) {
-        for (var i = childNumber; i < root.children.length; i++) {
+    if (root !== null && root.children.length > 0) {
+        for (var i = 0; i < root.children.length; i++) {
             if (typeof ASTNodes[root.children[i].nodeName] !== "undefined") {
                 //Rename from CST to AST nodeName
                 AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
@@ -912,7 +923,7 @@ function buildAST(root, childNumber) {
                     }*/ //search for expression? or expect a certain child index?
                     //root.children[i][2][0][0]; //2 for the expression, 0 for type of expression, 0 for leaf
                     //has an Expression child
-                    AST.addLeafNode(root.children[i].children[0].children[2].children[0].children[0]);
+                    AST.addLeafNode(root.children[i].children[2].children[0].children[0].children[0]);
                 }
                 else if (ASTNodes[root.children[i].nodeName] === "If" || ASTNodes[root.children[i].nodeName] === "While") {
                     //has a BooleanExpression -> with TWO Expressions and a T_boolop. and a Block.
@@ -925,19 +936,22 @@ function buildAST(root, childNumber) {
                 else if (ASTNodes[root.children[i].nodeName] === "Add") {
                 }
             }
-            buildAST(root.children[i], i);
+            var saved = root.children[i];
+            root.children.splice(i, 1); //remove this
+            buildAST(saved, i);
         }
     }
-    else {
+    else if (root !== null) {
         if (typeof ASTNodes[root.nodeName] !== "undefined") {
             AST.addLeafNode(root.nodeName);
-            AST.backtrack();
         }
+        //root.parent.children.splice(childNumber, 1); //remove this
         buildAST(root.parent, childNumber + 1); //check next child
     }
+    else {
+        return;
+    }
 }
-//Create new current scope
-var currentScope = new SymbolTableNode('Scope', '0', {}, null, []);
 //Traverses AST and builds symbol table, while checking for scope and type errors
 function scopeAndTypeCheck(root) {
     if (root.nodeName === "Block") {
@@ -949,28 +963,38 @@ function scopeAndTypeCheck(root) {
         currentScope.addVariable(root.children[0], root.children[1]);
     }
     else if (root.nodeName === "Assignment") {
-        currentScope.find(root.children[0]); //else search parent scope
+        var isFound = currentScope.find(root.children[0]); //else search parent scope
         var type = currentScope.getType(root.children[0]);
         //does value (root.children[1]) match int (0-9), string ("") or boolean (T/F)? also a = a
         //check if var exists in current scope in symbol table - and parent scope, if not
         //check if type is correct
-        log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
-        log("Semantic Analysis Error - Variable " + root.children[0] + " is of type " + type + " and cannot be set to " + root.children[1]);
+        if (!isFound) {
+            log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
+        }
+        if (type === null) {
+            log("Semantic Analysis Error - Variable " + root.children[0] + " is of type " + type + " and cannot be set to " + root.children[1]);
+        }
     }
     else if (root.nodeName === "Output") {
-        currentScope.find(root.children[0]); //else search parent scope
+        var isFound = currentScope.find(root.children[0]); //else search parent scope
         //check if var exists in current scope in symbol table - and parent scope, if not
-        log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
+        if (!isFound) {
+            log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
+        }
     }
     else if (root.nodeName === "If" || root.nodeName === "While") {
         scopeAndTypeCheck(root.children[0]);
         scopeAndTypeCheck(root.children[1]);
     }
     else if (root.nodeName === "CompareTest") {
-        currentScope.find(root.children[0]); //else search parent scope
+        var isFound = currentScope.find(root.children[0]); //else search parent scope
         var type = currentScope.getType(root.children[0]);
-        log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
-        log("Semantic Analysis Error - Variable " + root.children[0] + " is of type " + type + " and cannot be compared to " + root.children[1]);
+        if (!isFound) {
+            log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
+        }
+        if (type === null) {
+            log("Semantic Analysis Error - Variable " + root.children[0] + " is of type " + type + " and cannot be compared to " + root.children[1]);
+        }
     }
     else {
     }
