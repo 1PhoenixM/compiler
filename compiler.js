@@ -861,19 +861,19 @@ var currentScope = new SymbolTableNode('Scope', '0', {}, null, []);
 //The nodes that transfer from CST to AST
 //Translates CST nodes into AST nodes.
 var ASTNodes = {
-    't_intop': 'Add',
+    'T_intop': 'Add',
     'PrintStatement': 'Output',
-    't_boolop': 'CompareTest',
-    't_boolTrue': 'BooleanTrue',
-    't_boolFalse': 'BooleanFalse',
+    'T_boolop': 'CompareTest',
+    'T_boolTrue': 'BooleanTrue',
+    'T_boolFalse': 'BooleanFalse',
     'Block': 'Block',
     'AssignmentStatement': 'Assignment',
     'VariableDeclarationStatement': 'VariableDeclaration',
     'IfStatement': 'If',
     'WhileStatement': 'While',
-    't_char': 'Character',
+    'T_char': 'Character',
     'CharList': 'String',
-    't_digit': 'Number'
+    'T_digit': 'Number'
 };
 /*Project 2 */
 //Step 3 - Input: CST, Output: AST
@@ -886,7 +886,7 @@ function semanticAnalysis(CST) {
     AST = new AbstractSyntaxTree(null, null);
     SymbolTableInstance = new SymbolTable(null, null);
     currentScope = new SymbolTableNode('Scope', '0', {}, null, []);
-    log("Semantic Analysis complete!");
+    //document.getElementById('machine-code').innerHTML += "Semantic Analysis complete!" + "<br />";
     codeGeneration();
     //CST.root.children - if important, add branch or leaf to AST
     //traverse in order depth first CST and select important nodes
@@ -930,7 +930,7 @@ function buildAST(root, childNumber) {
                     //to do: token differentiation between !== and ==. store values in symbol table
                     AST.addBranchNode("CompareTest");
                     AST.addLeafNode(root.children[i].children[1].children[0]);
-                    AST.addLeafNode(root.children[i].children[0].children[0].children[0]);
+                    AST.addLeafNode(root.children[i].children[0].children[0]);
                     AST.addBranchNode("Block");
                 }
                 else if (ASTNodes[root.children[i].nodeName] === "Add") {
@@ -960,40 +960,45 @@ function scopeAndTypeCheck(root) {
         }
     }
     else if (root.nodeName === "VariableDeclaration") {
-        currentScope.addVariable(root.children[0], root.children[1]);
+        currentScope.addVariable(root.children[0].nodeVal, root.children[1].nodeVal);
     }
     else if (root.nodeName === "Assignment") {
-        var isFound = currentScope.find(root.children[0]); //else search parent scope
-        var type = currentScope.getType(root.children[0]);
+        var isFound = currentScope.find(root.children[0].nodeVal); //else search parent scope
+        var type = currentScope.getType(root.children[0].nodeVal);
         //does value (root.children[1]) match int (0-9), string ("") or boolean (T/F)? also a = a
         //check if var exists in current scope in symbol table - and parent scope, if not
         //check if type is correct
         if (!isFound) {
-            log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
+            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
         }
         if (type === null) {
-            log("Semantic Analysis Error - Variable " + root.children[0] + " is of type " + type + " and cannot be set to " + root.children[1]);
+            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to " + root.children[1]);
         }
     }
     else if (root.nodeName === "Output") {
         var isFound = currentScope.find(root.children[0]); //else search parent scope
         //check if var exists in current scope in symbol table - and parent scope, if not
+        for (var i = 0; i < root.children.length; i++) {
+            if (root.children[i].nodeName === "Character") {
+                isFound = currentScope.find(root.children[0].nodeVal);
+            }
+        }
         if (!isFound) {
-            log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
+            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
         }
     }
     else if (root.nodeName === "If" || root.nodeName === "While") {
-        scopeAndTypeCheck(root.children[0]);
-        scopeAndTypeCheck(root.children[1]);
+        scopeAndTypeCheck(root.children[0].nodeVal);
+        scopeAndTypeCheck(root.children[1].nodeVal);
     }
     else if (root.nodeName === "CompareTest") {
-        var isFound = currentScope.find(root.children[0]); //else search parent scope
-        var type = currentScope.getType(root.children[0]);
+        var isFound = currentScope.find(root.children[0].nodeVal); //else search parent scope
+        var type = currentScope.getType(root.children[0].nodeVal);
         if (!isFound) {
-            log("Semantic Analysis Error - Variable " + root.children[0] + " is not found.");
+            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
         }
         if (type === null) {
-            log("Semantic Analysis Error - Variable " + root.children[0] + " is of type " + type + " and cannot be compared to " + root.children[1]);
+            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to " + root.children[1].nodeVal);
         }
     }
     else {
