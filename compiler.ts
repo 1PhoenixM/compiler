@@ -75,7 +75,7 @@ class ConcreteSyntaxTree{
 		if(rootNode.children.length > 0){
 			for(var i = 0; i < rootNode.children.length; i++){
 				this.toString(rootNode.children[i], indent+"-");
-				log("\n" + indent + rootNode.children[i].nodeName);
+				//log("\n" + indent + rootNode.children[i].nodeName);
 			}
 		}
 		else{
@@ -133,8 +133,8 @@ class AbstractSyntaxTree{
 	};
 	
 	//Adds an AST leaf node
-	addLeafNode(nodeName: string){ //also value
-		var n = new ASTLeafNode(nodeName, 'a', null, []);
+	addLeafNode(nodeName: string, nodeVal: string){ 
+		var n = new ASTLeafNode(nodeName, nodeVal, null, []);
 		n.parent = this.current;
 		n.parent.children.push(n);
 	};
@@ -150,7 +150,7 @@ class AbstractSyntaxTree{
 		if(rootNode.children.length > 0){
 			for(var i = 0; i < rootNode.children.length; i++){
 				this.toString(rootNode.children[i], indent+"-");
-				log("\n" + indent + rootNode.children[i].nodeName);
+				//log("\n" + indent + rootNode.children[i].nodeName);
 			}
 		}
 		else{
@@ -234,6 +234,8 @@ class SymbolTable{
 
 //The symbol table node class, for a hash table on one scope
 class SymbolTableNode{
+	
+	//One node is created for each new scope in the program
 	constructor(public nodeName, public nodeVal, public map, public parent, public children){
 		this.nodeName = nodeName; 
 		this.nodeVal = nodeVal;
@@ -242,25 +244,24 @@ class SymbolTableNode{
 		this.children = children;
     }
 	
+	//Adds a variable and its type to the table
 	addVariable(symbol: ASTLeafNode, type: ASTLeafNode){
 		this.map[symbol.nodeVal] = type.nodeVal; 
 	}
 	
+	//Finds a given variable if it exists in the table
 	find(symbol: ASTLeafNode){
-		if(typeof this.map[symbol.nodeVal] !== undefined){
-			return true;
-		}
-		else{
-			return false;
-		}
+		return symbol.nodeVal in this.map ? true : false;
 	}
 	
+	//Gets the type of a given variable in the table
 	getType(symbol: ASTLeafNode){
 		return this.map[symbol.nodeVal];
 	}
 	
+	//The representation of the scope
 	toString(){
-		log("<br />" + "Symbol Table" + "<br />" + JSON.stringify(this.map));
+		log("<br />" + "Symbol Table: " + "<br />" + JSON.stringify(this.map));
 	}
 }
 
@@ -863,6 +864,11 @@ function log(toAdd: String){
    }
 }
 
+function errorLog(toAdd: String){
+	logString += "<span style='color:red'>" + toAdd + "</span><br />";
+	//end compile
+}
+
 //Set verbose status and button
 function verboseToggle(){
 	if(verboseMode){
@@ -887,7 +893,7 @@ var AST = new AbstractSyntaxTree(null, null);
 var SymbolTableInstance = new SymbolTable(null, null);
 
 //Create new current scope
-var currentScope = new SymbolTableNode('Scope', '0', {}, null, []);
+var currentScope = new SymbolTableNode('Scope', 0, {}, null, []);
 
 //The nodes that transfer from CST to AST
 //Translates CST nodes into AST nodes.
@@ -917,7 +923,7 @@ var ASTNodes = {
 	// IfStatement if -> if (cond + scope/block)
 	// WhileStatement while -> while (cond + scope/block)
 		
-	//leaves - values
+	//leaves are values
 };
 
 /*Project 2 */
@@ -926,14 +932,14 @@ function semanticAnalysis(CST: ConcreteSyntaxTree){
   buildAST(CST.root, 0);
   log("Abstract Syntax Tree for Program <>: <br />");
   AST.toString(AST.root, "-");
-  currentScope.toString();
   scopeAndTypeCheck(AST.root);
+  currentScope.toString();
   //reset these
   AST = new AbstractSyntaxTree(null, null);
   SymbolTableInstance = new SymbolTable(null, null);
-  currentScope = new SymbolTableNode('Scope', '0', {}, null, []);
-  //document.getElementById('machine-code').innerHTML += "Semantic Analysis complete!" + "<br />";
+  currentScope = new SymbolTableNode('Scope', 0, {}, null, []);
   codeGeneration();
+  //document.getElementById('machine-code').innerHTML += "Semantic Analysis complete!" + "<br />"; //multiple programs
   //CST.root.children - if important, add branch or leaf to AST
   //traverse in order depth first CST and select important nodes
   //build AST with those
@@ -950,21 +956,27 @@ function buildAST(root: CSTNode, childNumber: number){
 		for(var i = 0; i < root.children.length; i++){
 			if(typeof ASTNodes[root.children[i].nodeName] !== "undefined"){
 				//Rename from CST to AST nodeName
-				AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
 				
 				if(ASTNodes[root.children[i].nodeName] === "Block"){
 					//StatementList -> a Statement and another StatementList which may or may not be empty
-					//Statement is some kind of Statement that translates to an AST node...
+					//Statement is some kind of Statement that translates to an AST node..
+					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name.
+					for(var j = 0; j < root.children[i].children.length; j++){
+						buildAST(root.children[i].children[j], 0); //need to read StatementList down - not full tree
+					} //could backtrack, give block more children. only reading 1st statement
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "VariableDeclaration"){
 					//has a t_type? child and an ID -> t_char
-					AST.addLeafNode(root.children[i].children[0]);
-					AST.addLeafNode(root.children[i].children[1].children[0]);
+					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
+					AST.addLeafNode("LeftVal", root.children[i].children[0].nodeVal);
+					AST.addLeafNode("RightVal", root.children[i].children[1].children[0].nodeVal);
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "Assignment"){
+					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
 					//has an ID -> t_char and an Expression which is some kind of Expression
-					AST.addLeafNode(root.children[i].children[1].children[0]);
-					AST.addLeafNode(root.children[i].children[0].children[0].children[0]);
+					//try different types
+					AST.addLeafNode("LeftVal", root.children[i].children[1].children[0].nodeVal);
+					AST.addLeafNode("RightVal", root.children[i].children[0].children[0].children[0].nodeVal);
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "Output"){
 					/*for(var j = 0; j < root.children[i].children; j++){
@@ -974,20 +986,26 @@ function buildAST(root: CSTNode, childNumber: number){
 					}*/ //search for expression? or expect a certain child index?
 					//root.children[i][2][0][0]; //2 for the expression, 0 for type of expression, 0 for leaf
 					//has an Expression child
-					AST.addLeafNode(root.children[i].children[2].children[0].children[0].children[0]);
+					
+					//though this may crash if it doesn't find the expected thing
+					//print string, save whole string
+					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
+					AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal);
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "If" || ASTNodes[root.children[i].nodeName] === "While"){
 					//has a BooleanExpression -> with TWO Expressions and a T_boolop. and a Block.
 					//to do: token differentiation between !== and ==. store values in symbol table
+					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
 					AST.addBranchNode("CompareTest");
-					AST.addLeafNode(root.children[i].children[1].children[0]);
-					AST.addLeafNode(root.children[i].children[0].children[0]);
+					AST.addLeafNode("LeftVal", root.children[i].children[1].children[0].nodeVal);
+					AST.addLeafNode("RightVal", root.children[i].children[0].children[0]);
 					AST.addBranchNode("Block");
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "Add"){
 					//do Add subtree routine
 					//IntegerExpression -> with children t_digit, t_intop, and t_expression.
 					//t_expression is then another t_integerexpression which has a t_digit...
+					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
 				}
 				
 			}
@@ -996,70 +1014,127 @@ function buildAST(root: CSTNode, childNumber: number){
 			buildAST(saved, i);
 		}
 	}
-	else if(root !== null){
+	/*else if(root !== null && root.nodeName !== "Program"){
 		if(typeof ASTNodes[root.nodeName] !== "undefined"){
-			AST.addLeafNode(root.nodeName);
+			//AST.addLeafNode(root.nodeName);
 			//AST.backtrack();
 		}
-		//root.parent.children.splice(childNumber, 1); //remove this
+		root.parent.children.splice(childNumber, 1); //remove this
 		buildAST(root.parent, childNumber+1); //check next child
-	}
+	}*/
 	else{
 		return;
 	}
 }
 
 //Traverses AST and builds symbol table, while checking for scope and type errors
+//parent scope, type exp matching / type mismatch (save type)
+
+//undeclared ids *
+//redeclared ids in same scope *
+//unused ids (?) (save value)
+//uninitialized ids (used in output and compare)
+
+//report line number (save line #)
+//test programs
 function scopeAndTypeCheck(root: ASTNode){
 	if(root.nodeName === "Block"){
 		for(var i = 0; i < root.children.length; i++){
 			scopeAndTypeCheck(root.children[i]);
 		}
+		var oldScope = currentScope; //toString the scope tree
+		currentScope = new SymbolTableNode('Scope', currentScope.nodeVal+1, {}, currentScope, []);
+		oldScope.children.push(currentScope);
 		//new scope, set to current scope
 		//need to reset scope when done with this block... return to another scope. close scopes as you back out
 	}
 	else if(root.nodeName === "VariableDeclaration"){
-		currentScope.addVariable(root.children[0], root.children[1]);
+		if(currentScope.find(root.children[1])){
+			log("Semantic Analysis Error - Variable " + root.children[1] + " was redeclared."); //errorlog() to end compilation
+		}
+		else{
+			currentScope.addVariable(root.children[1], root.children[0]);
+		}
 		//add new var to current scope in symbol table
 	}
 	else if(root.nodeName === "Assignment"){
-		var isFound = currentScope.find(root.children[0]); //else search parent scope
+		var isFound = false;
+		//check if var exists in current scope in symbol table - and parent scope, if not
+		if(root.children[0].nodeName === "LeftVal"){ //and check rightVal, which may be a variable or a value. 0 or 1?
+			isFound = currentScope.find(root.children[0]);
+		}
+		
+		if(!isFound){
+			if(currentScope.parent !== null){
+				var searchScope = currentScope.parent;
+				while(searchScope.parent !== null){
+					searchScope = searchScope.parent;
+					isFound = searchScope.parent.find(root.children[0]);
+				}
+			}
+			if(!isFound){
+				log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
+			}
+		}
+		
 		var type = currentScope.getType(root.children[0]);
+		//type match - integerExpression, stringExpression, booleanExpression
+		
 		//does value (root.children[1]) match int (0-9), string ("") or boolean (T/F)? also a = a
 		//check if var exists in current scope in symbol table - and parent scope, if not
 		//check if type is correct
-		if(!isFound){
-			log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
-		}
 		if(type === null){
 		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to " + root.children[1]);
 		}
 	}
 	else if(root.nodeName === "Output"){
-		var isFound = currentScope.find(root.children[0]); //else search parent scope
+		var isFound = false;
 		//check if var exists in current scope in symbol table - and parent scope, if not
-		for(var i = 0; i < root.children.length; i++){
-			if(root.children[i].nodeName === "Character"){
-				isFound = currentScope.find(root.children[0]);
-			}
+		if(root.children[0].nodeName === "OutputVal"){
+			isFound = currentScope.find(root.children[0]);
 		}
+		
 		if(!isFound){
-			log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
+			if(currentScope.parent !== null){
+				var searchScope = currentScope.parent;
+				while(searchScope.parent !== null){
+					searchScope = searchScope.parent;
+					isFound = searchScope.parent.find(root.children[0]);
+				}
+			}
+			if(!isFound){
+				log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
+			}
 		}
 	}
 	else if(root.nodeName === "If" || root.nodeName === "While"){
-		scopeAndTypeCheck(root.children[0]);
-		scopeAndTypeCheck(root.children[1]);
+		scopeAndTypeCheck(root.children[0]); //check test
+		scopeAndTypeCheck(root.children[1]); //check block
 		//check if var exists in current scope in symbol table - and parent scope, if not - a != a
 		//check if types are comparable - not needed if simple "true" or "false" literal.
 		//could be eq, noteq, true, false
 	}
 	else if(root.nodeName === "CompareTest"){
-		var isFound = currentScope.find(root.children[0]); //else search parent scope
-		var type = currentScope.getType(root.children[0]);
-		if(!isFound){
-			log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
+		var isFound = false;
+		//check if var exists in current scope in symbol table - and parent scope, if not
+		if(root.children[0].nodeName === "LeftVal"){ //0, 1, rightVal
+			isFound = currentScope.find(root.children[0]);
 		}
+		
+		if(!isFound){
+			if(currentScope.parent !== null){
+				var searchScope = currentScope.parent;
+				while(searchScope.parent !== null){
+					searchScope = searchScope.parent;
+					isFound = searchScope.parent.find(root.children[0]);
+				}
+			}
+			if(!isFound){
+				log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
+			}
+		}
+		
+		var type = currentScope.getType(root.children[0]);
 		if(type === null){
 		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to " + root.children[1].nodeVal);
 		}
@@ -1079,4 +1154,19 @@ function scopeAndTypeCheck(root: ASTNode){
 function codeGeneration(){
   //instruction selection
   //translate into hex/bin
+  //traverse AST
+  document.getElementById('hex-code').innerHTML += "<br /> Hex codes TBD...";
+  //VariableDeclaration: A9 00 8D T0 XX
+  //Assignment (Constant): A9 0<digit> 8D T0 XX
+  //Assignment (From Var): AD T1 XX 8D T0 XX
+  //Output: AC T0 XX A2 0(1|2) FF
+  //CompareTo: AE T0 XX EC T1 XX
+  //If (Block): D0 J0
+  //Break (and initialize heap space) (safe value to jump to if test fails): 00
+  //While: Like IF, only you jump "backward" back to the test again by adding ~128 to wrap around. thus, a loop until test evals to false
+  //Add: EE
+  //Strings: write backward starting at bottom of heap. have one static pointer (one byte) to the first char of the string and store in ASCII bytes.
+  //Runtime image consist of code in hex, static space where vars are, and the rest is heap space where strings can be. Unused heap space should be 00, to fill from 00 - FF in the address space, creating an executable of 256 B, fixed size
+  //Static table, jump table, backpatching to replace correct references once known after traversing the code
+  //Instruction format, hex format
 }
