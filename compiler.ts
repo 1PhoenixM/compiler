@@ -141,7 +141,12 @@ class AbstractSyntaxTree{
 	
 	//Backtracks the tree
 	backtrack(){
-		this.current = this.current.parent;
+		if(this.current.parent === null){
+			//do nothing, don't fall off the edge
+		}
+		else{
+			this.current = this.current.parent;
+		}
 	};
 	
 	//Prints the tree
@@ -952,6 +957,7 @@ function semanticAnalysis(CST: ConcreteSyntaxTree){
 //next step: AST and symbol table classes like CST one. report errors & warnings. cst duplication of nodes?
 //recursive calls need to remember which child (leaf) was evaluated last and continue from there
 function buildAST(root: CSTNode, childNumber: number){
+	console.log(root.nodeName);
 	if (root !== null && root.children.length > 0) {
 		for(var i = 0; i < root.children.length; i++){
 			if(typeof ASTNodes[root.children[i].nodeName] !== "undefined"){
@@ -961,10 +967,19 @@ function buildAST(root: CSTNode, childNumber: number){
 					//StatementList -> a Statement and another StatementList which may or may not be empty
 					//Statement is some kind of Statement that translates to an AST node..
 					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name.
-					for(var j = 0; j < root.children[i].children.length; j++){
+					/*for(var j = 0; j < root.children[i].children.length; j++){
 						buildAST(root.children[i].children[j], 0); //need to read StatementList down - not full tree
-					} //could backtrack, give block more children. only reading 1st statement
+						AST.backtrack();
+					} //could backtrack, give block more children. only reading 1st statement*/
+					//buildAST(root.children[i].children[1], 0); //stmtlist
 				}
+				else if(root.children[i].nodeName === "StatementList"){
+					//buildAST(root.children[i].children[0], 0); //statement
+					//buildAST(root.children[i].children[1], 0); //stmtlist
+				}
+				/*else if(root.children[i].nodeName === "Statement"){
+					buildAST(root.children[i].children[0]); //statement
+				}*/
 				else if(ASTNodes[root.children[i].nodeName] === "VariableDeclaration"){
 					//has a t_type? child and an ID -> t_char
 					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
@@ -1010,7 +1025,7 @@ function buildAST(root: CSTNode, childNumber: number){
 				
 			}
 			var saved = root.children[i];
-			root.children.splice(i, 1); //remove this
+			//root.children.splice(i, 1); //remove this
 			buildAST(saved, i);
 		}
 	}

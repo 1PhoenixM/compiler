@@ -149,7 +149,11 @@ var AbstractSyntaxTree = (function () {
     ;
     //Backtracks the tree
     AbstractSyntaxTree.prototype.backtrack = function () {
-        this.current = this.current.parent;
+        if (this.current.parent === null) {
+        }
+        else {
+            this.current = this.current.parent;
+        }
     };
     ;
     //Prints the tree
@@ -904,6 +908,7 @@ function semanticAnalysis(CST) {
 //next step: AST and symbol table classes like CST one. report errors & warnings. cst duplication of nodes?
 //recursive calls need to remember which child (leaf) was evaluated last and continue from there
 function buildAST(root, childNumber) {
+    console.log(root.nodeName);
     if (root !== null && root.children.length > 0) {
         for (var i = 0; i < root.children.length; i++) {
             if (typeof ASTNodes[root.children[i].nodeName] !== "undefined") {
@@ -912,9 +917,8 @@ function buildAST(root, childNumber) {
                     //StatementList -> a Statement and another StatementList which may or may not be empty
                     //Statement is some kind of Statement that translates to an AST node..
                     AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name.
-                    for (var j = 0; j < root.children[i].children.length; j++) {
-                        buildAST(root.children[i].children[j], 0); //need to read StatementList down - not full tree
-                    } //could backtrack, give block more children. only reading 1st statement
+                }
+                else if (root.children[i].nodeName === "StatementList") {
                 }
                 else if (ASTNodes[root.children[i].nodeName] === "VariableDeclaration") {
                     //has a t_type? child and an ID -> t_char
@@ -959,7 +963,7 @@ function buildAST(root, childNumber) {
                 }
             }
             var saved = root.children[i];
-            root.children.splice(i, 1); //remove this
+            //root.children.splice(i, 1); //remove this
             buildAST(saved, i);
         }
     }
