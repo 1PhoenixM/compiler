@@ -133,8 +133,8 @@ class AbstractSyntaxTree{
 	};
 	
 	//Adds an AST leaf node
-	addLeafNode(nodeName: string, nodeVal: string){ 
-		var n = new ASTLeafNode(nodeName, nodeVal, null, []);
+	addLeafNode(nodeName: string, nodeVal: string, nodeType: string){ 
+		var n = new ASTLeafNode(nodeName, nodeVal, nodeType, null, []);
 		n.parent = this.current;
 		n.parent.children.push(n);
 	};
@@ -182,9 +182,10 @@ class ASTBranchNode extends ASTNode{
 
 //The abstract syntax tree leaf node class. Each represents a type, value, or variable.
 class ASTLeafNode extends ASTNode{
-    constructor(public nodeName, public nodeVal, public parent, public children){
+    constructor(public nodeName, public nodeVal, public nodeType, public parent, public children){
 		super(nodeName, parent, children);
 		this.nodeVal = nodeVal;
+		this.nodeType = nodeType;
     }
 }
 
@@ -224,7 +225,16 @@ class SymbolTable{
 		this.current = this.current.parent;
 	};
 	toString(rootNode: SymbolTableNode, indent: string){
-		log("\n" + indent + rootNode.nodeName);
+		log("\n" + "Symbol Table Scope: " + rootNode.nodeVal + " = " + JSON.stringify(rootNode.map));
+		if(rootNode !== null){
+			if(rootNode.children.length > 0){
+				for(var i = 0; i < rootNode.children.length; i++){
+					this.toString(rootNode.children[i], indent+"-");
+						
+				}
+			}
+		}
+		/*log("\n" + indent + rootNode.nodeName);
 		if(rootNode.children.length > 0){
 			for(var i = 0; i < rootNode.children.length; i++){
 				this.toString(rootNode.children[i], indent+"-");
@@ -233,7 +243,7 @@ class SymbolTable{
 		}
 		else{
 			//log("\n" + indent + rootNode.nodeName);
-		}
+		}*/
 	};
 }
 
@@ -244,7 +254,7 @@ class SymbolTableNode{
 	constructor(public nodeName, public nodeVal, public map, public parent, public children){
 		this.nodeName = nodeName; 
 		this.nodeVal = nodeVal;
-		this.map = map;
+		this.map = map; //include hasBeenUsed var
 		this.parent = parent;
 		this.children = children;
     }
@@ -592,7 +602,7 @@ function parseProgram(){
   if(match(["T_EOF"], false, false)) { 
 	programCount++;
 	log("Program " + programCount + "<br />"); 
-	log("Concrete Syntax Tree for Program " + programCount + ":<br />");
+	log("Concrete Syntax Tree for Program " + programCount + ":<br />"); //fixing logging
 	CST.toString(CST.root, "-");
 	semanticAnalysis(CST);
 	//Next program
@@ -894,11 +904,12 @@ function verboseToggle(){
 //The abstract syntax tree
 var AST = new AbstractSyntaxTree(null, null);
 
-//The symbol table (tree)
-var SymbolTableInstance = new SymbolTable(null, null);
-
 //Create new current scope
 var currentScope = new SymbolTableNode('Scope', 0, {}, null, []);
+//var firstScope = currentScope;
+
+//The symbol table (tree)
+var SymbolTableInstance = new SymbolTable(currentScope, currentScope);
 
 //The nodes that transfer from CST to AST
 //Translates CST nodes into AST nodes.
@@ -938,11 +949,13 @@ function semanticAnalysis(CST: ConcreteSyntaxTree){
   log("Abstract Syntax Tree for Program <>: <br />");
   AST.toString(AST.root, "-");
   scopeAndTypeCheck(AST.root);
-  currentScope.toString();
+  //currentScope.toString();
+  SymbolTableInstance.toString(SymbolTableInstance.root, "-");
   //reset these
   AST = new AbstractSyntaxTree(null, null);
-  SymbolTableInstance = new SymbolTable(null, null);
   currentScope = new SymbolTableNode('Scope', 0, {}, null, []);
+  SymbolTableInstance = new SymbolTable(currentScope, currentScope);
+  activeType = "";
   codeGeneration();
   //document.getElementById('machine-code').innerHTML += "Semantic Analysis complete!" + "<br />"; //multiple programs
   //CST.root.children - if important, add branch or leaf to AST
@@ -954,10 +967,13 @@ function semanticAnalysis(CST: ConcreteSyntaxTree){
   
 }
 
+var activeType = "";
+
 //next step: AST and symbol table classes like CST one. report errors & warnings. cst duplication of nodes?
 //recursive calls need to remember which child (leaf) was evaluated last and continue from there
+
+//todo: blocks should have stmt children so scopes can close. types need to be checked earlier. step through this
 function buildAST(root: CSTNode, childNumber: number){
-	console.log(root.nodeName);
 	if (root !== null && root.children.length > 0) {
 		for(var i = 0; i < root.children.length; i++){
 			if(typeof ASTNodes[root.children[i].nodeName] !== "undefined"){
@@ -972,26 +988,31 @@ function buildAST(root: CSTNode, childNumber: number){
 						AST.backtrack();
 					} //could backtrack, give block more children. only reading 1st statement*/
 					//buildAST(root.children[i].children[1], 0); //stmtlist
+					AST.backtrack();
 				}
-				else if(root.children[i].nodeName === "StatementList"){
-					//buildAST(root.children[i].children[0], 0); //statement
-					//buildAST(root.children[i].children[1], 0); //stmtlist
+				else if(root.nodeName === "IntegerExpression"){ //should happen earlier
+					activeType = "int";
 				}
-				/*else if(root.children[i].nodeName === "Statement"){
-					buildAST(root.children[i].children[0]); //statement
-				}*/
+				else if(root.nodeName === "StringExpression"){
+					activeType = "string";
+				}
+				else if(root.nodeName === "BooleanExpression"){
+					activeType = "boolean";
+				}
 				else if(ASTNodes[root.children[i].nodeName] === "VariableDeclaration"){
 					//has a t_type? child and an ID -> t_char
 					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
-					AST.addLeafNode("LeftVal", root.children[i].children[0].nodeVal);
-					AST.addLeafNode("RightVal", root.children[i].children[1].children[0].nodeVal);
+					AST.addLeafNode("LeftVal", root.children[i].children[0].nodeVal, activeType);
+					AST.addLeafNode("RightVal", root.children[i].children[1].children[0].nodeVal, activeType);
+					AST.backtrack();
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "Assignment"){
 					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
 					//has an ID -> t_char and an Expression which is some kind of Expression
 					//try different types
-					AST.addLeafNode("LeftVal", root.children[i].children[0].children[0].nodeVal);
-					AST.addLeafNode("RightVal", root.children[i].children[2].children[0].children[0].nodeVal);
+					AST.addLeafNode("LeftVal", root.children[i].children[0].children[0].nodeVal, activeType);
+					AST.addLeafNode("RightVal", root.children[i].children[2].children[0].children[0].nodeVal,  activeType);
+					AST.backtrack();
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "Output"){
 					/*for(var j = 0; j < root.children[i].children; j++){
@@ -1005,22 +1026,25 @@ function buildAST(root: CSTNode, childNumber: number){
 					//though this may crash if it doesn't find the expected thing
 					//print string, save whole string
 					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
-					AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal);
+					AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal,  activeType);
+					AST.backtrack();
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "If" || ASTNodes[root.children[i].nodeName] === "While"){
 					//has a BooleanExpression -> with TWO Expressions and a T_boolop. and a Block.
 					//to do: token differentiation between !== and ==. store values in symbol table
 					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
 					AST.addBranchNode("CompareTest");
-					AST.addLeafNode("LeftVal", root.children[i].children[1].children[0].nodeVal);
-					AST.addLeafNode("RightVal", root.children[i].children[0].children[0]);
+					AST.addLeafNode("LeftVal", root.children[i].children[1].children[0].nodeVal, activeType);
+					AST.addLeafNode("RightVal", root.children[i].children[0].children[0], activeType);
 					AST.addBranchNode("Block");
+					AST.backtrack();
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "Add"){
 					//do Add subtree routine
 					//IntegerExpression -> with children t_digit, t_intop, and t_expression.
 					//t_expression is then another t_integerexpression which has a t_digit...
 					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
+					AST.backtrack();
 				}
 				
 			}
@@ -1052,6 +1076,11 @@ function buildAST(root: CSTNode, childNumber: number){
 
 //report line number (save line #)
 //test programs
+//one statement is being checked, nodes should be children. backtrack to block
+
+//differentiate a in one scope from another. close scopes 
+//type checking
+//check a = a
 function scopeAndTypeCheck(root: ASTNode){
 	if(root.nodeName === "Block"){
 		for(var i = 0; i < root.children.length; i++){
@@ -1060,6 +1089,7 @@ function scopeAndTypeCheck(root: ASTNode){
 		var oldScope = currentScope; //toString the scope tree
 		currentScope = new SymbolTableNode('Scope', currentScope.nodeVal+1, {}, currentScope, []);
 		oldScope.children.push(currentScope);
+		currentScope.parent = oldScope;
 		//new scope, set to current scope
 		//need to reset scope when done with this block... return to another scope. close scopes as you back out
 	}
@@ -1098,8 +1128,9 @@ function scopeAndTypeCheck(root: ASTNode){
 		//does value (root.children[1]) match int (0-9), string ("") or boolean (T/F)? also a = a
 		//check if var exists in current scope in symbol table - and parent scope, if not
 		//check if type is correct
-		if(type === null){
-		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to " + root.children[1]);
+		//check if a = b; a and b are same type
+		if(type !== root.children[1].nodeType){
+		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + root.children[1].nodeType);
 		}
 	}
 	else if(root.nodeName === "Output"){
@@ -1150,8 +1181,8 @@ function scopeAndTypeCheck(root: ASTNode){
 		}
 		
 		var type = currentScope.getType(root.children[0]);
-		if(type === null){
-		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to " + root.children[1].nodeVal);
+		if(type !== root.children[1].nodeType){
+		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to " + root.children[1].nodeType);
 		}
 	}
 	/*else if(root.nodeName === "Add"){
