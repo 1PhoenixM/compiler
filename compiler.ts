@@ -975,8 +975,8 @@ function buildAST(root: CSTNode, childNumber: number){
 					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
 					//has an ID -> t_char and an Expression which is some kind of Expression
 					//try different types
-					AST.addLeafNode("LeftVal", root.children[i].children[1].children[0].nodeVal);
-					AST.addLeafNode("RightVal", root.children[i].children[0].children[0].children[0].nodeVal);
+					AST.addLeafNode("LeftVal", root.children[i].children[0].children[0].nodeVal);
+					AST.addLeafNode("RightVal", root.children[i].children[2].children[0].children[0].nodeVal);
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "Output"){
 					/*for(var j = 0; j < root.children[i].children; j++){
@@ -1155,7 +1155,7 @@ function codeGeneration(){
   //instruction selection
   //translate into hex/bin
   //traverse AST
-  document.getElementById('hex-code').innerHTML += "<br /> Hex codes TBD...";
+  document.getElementById('hex-code').innerHTML = "<br /> Hex codes TBD...";
   //VariableDeclaration: A9 00 8D T0 XX
   //Assignment (Constant): A9 0<digit> 8D T0 XX
   //Assignment (From Var): AD T1 XX 8D T0 XX
