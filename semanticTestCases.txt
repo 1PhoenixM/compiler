@@ -1,0 +1,8 @@
+# Type mismatch
+{ int v v = "v" }$
+
+# Redeclaration
+{ int q string q print(q) }$
+
+# Out of scope
+{print(m)}$
