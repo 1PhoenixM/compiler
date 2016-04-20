@@ -981,7 +981,12 @@ function buildAST(root, childNumber) {
                     //though this may crash if it doesn't find the expected thing
                     //print string, save whole string
                     AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
-                    AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal, true);
+                    if (root.children[i].children[2].children[0].nodeName === "ID") {
+                        AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal, true);
+                    }
+                    else {
+                        AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[2].children[0].children[0].nodeVal, true);
+                    }
                     AST.backtrack();
                 }
                 else if (ASTNodes[root.children[i].nodeName] === "If" || ASTNodes[root.children[i].nodeName] === "While") {
@@ -1036,7 +1041,7 @@ function scopeAndTypeCheck(root) {
     }
     else if (root.nodeName === "VariableDeclaration") {
         if (currentScope.find(root.children[1])) {
-            log("Semantic Analysis Error - Variable " + root.children[1].nodeVal + " was redeclared."); //errorlog() to end compilation
+            log("Semantic Analysis Warning - Variable " + root.children[1].nodeVal + " was redeclared."); //errorlog() to end compilation
         }
         else {
             currentScope.addVariable(root.children[1], root.children[0]);
@@ -1139,4 +1144,10 @@ function codeGeneration() {
     //Runtime image consist of code in hex, static space where vars are, and the rest is heap space where strings can be. Unused heap space should be 00, to fill from 00 - FF in the address space, creating an executable of 256 B, fixed size
     //Static table, jump table, backpatching to replace correct references once known after traversing the code
     //Instruction format, hex format
+    writeCodes(AST.root);
+}
+function writeCodes(root) {
+    /*if(root.nodeName === "VariableDeclaration"){
+        log("A9 00 8D T0 XX");
+    }*/
 }

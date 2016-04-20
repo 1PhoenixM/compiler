@@ -1033,7 +1033,12 @@ function buildAST(root: CSTNode, childNumber: number){
 					//though this may crash if it doesn't find the expected thing
 					//print string, save whole string
 					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
-					AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal,  true);
+					if(root.children[i].children[2].children[0].nodeName === "ID"){
+						AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal,  true);
+					}
+					else{ //must be adding
+						AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[2].children[0].children[0].nodeVal,  true);
+					}
 					AST.backtrack();
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "If" || ASTNodes[root.children[i].nodeName] === "While"){
@@ -1223,4 +1228,11 @@ function codeGeneration(){
   //Runtime image consist of code in hex, static space where vars are, and the rest is heap space where strings can be. Unused heap space should be 00, to fill from 00 - FF in the address space, creating an executable of 256 B, fixed size
   //Static table, jump table, backpatching to replace correct references once known after traversing the code
   //Instruction format, hex format
+  writeCodes(AST.root);
+}
+
+function writeCodes(root: ASTNode){
+	/*if(root.nodeName === "VariableDeclaration"){
+		log("A9 00 8D T0 XX");
+	}*/
 }
