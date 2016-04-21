@@ -1038,8 +1038,8 @@ function buildAST(root: CSTNode, childNumber: number){
 					if(root.children[i].children[2].children[0].nodeName === "ID"){
 						AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal,  true);
 					}
-					else{ //must be adding, or string or bool
-						AST.addLeafNode("OutputVal", 'exp',  true);
+					else{ //find ID in Add
+						AST.addLeafNode("OutputVal", findIDInAdd(root.children[i].children[2].children[0]),  true);
 					}
 					AST.backtrack();
 				}
@@ -1081,6 +1081,31 @@ function buildAST(root: CSTNode, childNumber: number){
 	}
 }
 
+function findIDInAdd(intExpr: ASTNode){
+	if(intExpr.nodeName === "IntegerExpression"){
+		if(intExpr.children !== null){
+			if(intExpr.children.length > 2){
+				if(intExpr.children[2].children[0].nodeName === "ID"){
+					return intExpr.children[2].children[0].children[0].nodeVal;
+				}
+				else{
+					findIDInAdd(intExpr.children[2].children[0]);
+				}
+			}
+			else{ //if ID is listed last
+				if(intExpr.children[0].nodeName === "ID"){
+					return intExpr.children[0].children[0].nodeVal;
+				}
+				else{
+					return "?";
+				}
+			}
+		}
+	}
+	else{
+		return "?"; //if add contained only digits and no id
+	}
+}
 //Traverses AST and builds symbol table, while checking for scope and type errors
 //parent scope, type exp matching / type mismatch (save type)
 
@@ -1100,6 +1125,9 @@ function scopeAndTypeCheck(root: ASTNode){
 	if(root.nodeName === "Block"){
 		for(var i = 0; i < root.children.length; i++){
 			scopeAndTypeCheck(root.children[i]);
+			if(i === root.children.length - 1 && currentScope.parent !== null){
+				currentScope = currentScope.parent; //close scope
+			}
 		}
 		var oldScope = currentScope; //toString the scope tree
 		currentScope = new SymbolTableNode('Scope', currentScope.nodeVal+1, {}, currentScope, []);
@@ -1152,10 +1180,12 @@ function scopeAndTypeCheck(root: ASTNode){
 		var isFound = false;
 		//check if var exists in current scope in symbol table - and parent scope, if not
 		if(root.children[0].nodeName === "OutputVal"){
-			isFound = currentScope.find(root.children[0]);
+			if(root.children[0].nodeVal !== "?"){
+				isFound = currentScope.find(root.children[0]);
+			}
 		}
 		
-		if(!isFound){
+		if(!isFound && root.children[0].nodeVal !== "?"){
 			if(currentScope.parent !== null){
 				var searchScope = currentScope.parent;
 				while(searchScope.parent !== null){
