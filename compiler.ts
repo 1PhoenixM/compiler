@@ -419,10 +419,12 @@ var stringDFA = {
 	'x': 's2',
 	'y': 's2',
 	'z': 's2',
-	'"': 's3'
+	'"': 's3',
+	'\ ': 's4'
 	},
 	's2': { 'accept': 'T_char' },
-	's3': { 'accept': 'T_quoteString' }
+	's3': { 'accept': 'T_quoteString' },
+	's4': { 'accept': 'T_space' }
 };
 
 //Step 1
@@ -1036,8 +1038,8 @@ function buildAST(root: CSTNode, childNumber: number){
 					if(root.children[i].children[2].children[0].nodeName === "ID"){
 						AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal,  true);
 					}
-					else{ //must be adding
-						AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[2].children[0].children[0].nodeVal,  true);
+					else{ //must be adding, or string or bool
+						AST.addLeafNode("OutputVal", 'exp',  true);
 					}
 					AST.backtrack();
 				}

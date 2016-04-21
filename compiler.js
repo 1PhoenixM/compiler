@@ -428,10 +428,12 @@ var stringDFA = {
         'x': 's2',
         'y': 's2',
         'z': 's2',
-        '"': 's3'
+        '"': 's3',
+        '\ ': 's4'
     },
     's2': { 'accept': 'T_char' },
-    's3': { 'accept': 'T_quoteString' }
+    's3': { 'accept': 'T_quoteString' },
+    's4': { 'accept': 'T_space' }
 };
 //Step 1
 //Lexical analysis: Constructs tokens and filters whitespace and bogus characters.
@@ -985,7 +987,7 @@ function buildAST(root, childNumber) {
                         AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal, true);
                     }
                     else {
-                        AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[2].children[0].children[0].nodeVal, true);
+                        AST.addLeafNode("OutputVal", 'exp', true);
                     }
                     AST.backtrack();
                 }
