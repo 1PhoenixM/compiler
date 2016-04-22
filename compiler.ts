@@ -119,7 +119,7 @@ class AbstractSyntaxTree{
 	
 	//Adds an AST branch node
 	addBranchNode(nodeName: string){
-		var n = new ASTBranchNode(nodeName, null, []);
+		var n = new ASTBranchNode(nodeName, null, [], false);
 		if(this.root == null){
 			this.root = n;
 			this.current = this.root;
@@ -134,7 +134,7 @@ class AbstractSyntaxTree{
 	
 	//Adds an AST leaf node
 	addLeafNode(nodeName: string, nodeVal: string, setType: boolean){ 
-		var n = new ASTLeafNode(nodeName, nodeVal, setType, null, []);
+		var n = new ASTLeafNode(nodeName, nodeVal, setType, null, [], false);
 		n.parent = this.current;
 		n.parent.children.push(n);
 		activeValue = n;
@@ -167,24 +167,25 @@ class AbstractSyntaxTree{
 
 //The abstract syntax tree node class. Each has a name, a parent, and an array of children.
 class ASTNode{
-	constructor(public nodeName, public parent, public children){
+	constructor(public nodeName, public parent, public children, public visited){
 		this.nodeName = nodeName; 
 		this.parent = parent;
 		this.children = children;
+		this.visited = visited;
     }
 }
 
 //The abstract syntax tree branch node class. Each represents an important AST branch node, in a subset of CSTNodes.
 class ASTBranchNode extends ASTNode{
-    constructor(public nodeName, public parent, public children){
-		super(nodeName, parent, children);
+    constructor(public nodeName, public parent, public children, public visited){
+		super(nodeName, parent, children, visited);
     }
 }
 
 //The abstract syntax tree leaf node class. Each represents a type, value, or variable.
 class ASTLeafNode extends ASTNode{
-    constructor(public nodeName, public nodeVal, public nodeType, public parent, public children){
-		super(nodeName, parent, children);
+    constructor(public nodeName, public nodeVal, public nodeType, public parent, public children, public visited){
+		super(nodeName, parent, children, visited);
 		this.nodeVal = nodeVal;
 		this.nodeType = nodeType;
     }
@@ -986,12 +987,13 @@ function buildAST(root: CSTNode, childNumber: number){
 					//StatementList -> a Statement and another StatementList which may or may not be empty
 					//Statement is some kind of Statement that translates to an AST node..
 					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name.
+					AST.backtrack();
 					/*for(var j = 0; j < root.children[i].children.length; j++){
 						buildAST(root.children[i].children[j], 0); //need to read StatementList down - not full tree
 						AST.backtrack();
 					} //could backtrack, give block more children. only reading 1st statement*/
 					//buildAST(root.children[i].children[1], 0); //stmtlist
-					AST.backtrack();
+					
 				}
 				else if(root.nodeName === "IntegerExpression"){ //should happen earlier
 					if(activeValue !== null){
@@ -1006,6 +1008,11 @@ function buildAST(root: CSTNode, childNumber: number){
 				else if(root.nodeName === "BooleanExpression"){
 					if(activeValue !== null){
 						activeValue.nodeType = "boolean";
+					}
+				}
+				else if(root.nodeName === "ID"){
+					if(activeValue !== null){
+						activeValue.nodeType = "ID";
 					}
 				}
 				else if(ASTNodes[root.children[i].nodeName] === "VariableDeclaration"){
@@ -1123,16 +1130,20 @@ function findIDInAdd(intExpr: ASTNode){
 //check a = a
 function scopeAndTypeCheck(root: ASTNode){
 	if(root.nodeName === "Block"){
+		if(root.visited === true){
+			currentScope = currentScope.parent; 
+		}
+		root.visited = true;
 		for(var i = 0; i < root.children.length; i++){
 			scopeAndTypeCheck(root.children[i]);
-			if(i === root.children.length - 1 && currentScope.parent !== null){
-				currentScope = currentScope.parent; //close scope
-			}
 		}
 		var oldScope = currentScope; //toString the scope tree
 		currentScope = new SymbolTableNode('Scope', currentScope.nodeVal+1, {}, currentScope, []);
 		oldScope.children.push(currentScope);
 		currentScope.parent = oldScope;
+		/*if(currentScope.parent !== null){
+				currentScope = currentScope.parent; //close scope
+		}*/
 		//new scope, set to current scope
 		//need to reset scope when done with this block... return to another scope. close scopes as you back out
 	}
@@ -1157,7 +1168,7 @@ function scopeAndTypeCheck(root: ASTNode){
 				var searchScope = currentScope.parent;
 				while(searchScope.parent !== null){
 					searchScope = searchScope.parent;
-					isFound = searchScope.parent.find(root.children[0]);
+					isFound = searchScope.find(root.children[0]);
 				}
 			}
 			if(!isFound){
@@ -1166,13 +1177,20 @@ function scopeAndTypeCheck(root: ASTNode){
 		}
 		
 		var type = currentScope.getType(root.children[0]);
+		var otherType = "";
+		if(root.children[1].nodeType === "ID"){
+			otherType = currentScope.getType(root.children[1]);
+		}
 		//type match - integerExpression, stringExpression, booleanExpression
 		
 		//does value (root.children[1]) match int (0-9), string ("") or boolean (T/F)? also a = a
 		//check if var exists in current scope in symbol table - and parent scope, if not
 		//check if type is correct
 		//check if a = b; a and b are same type
-		if(type !== root.children[1].nodeType){
+		if(otherType !== "" && type !== otherType){
+		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + otherType);	
+		}
+		else if(otherType === "" && type !== root.children[1].nodeType){
 		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + root.children[1].nodeType);
 		}
 	}
@@ -1190,7 +1208,7 @@ function scopeAndTypeCheck(root: ASTNode){
 				var searchScope = currentScope.parent;
 				while(searchScope.parent !== null){
 					searchScope = searchScope.parent;
-					isFound = searchScope.parent.find(root.children[0]);
+					isFound = searchScope.find(root.children[0]);
 				}
 			}
 			if(!isFound){
@@ -1217,7 +1235,7 @@ function scopeAndTypeCheck(root: ASTNode){
 				var searchScope = currentScope.parent;
 				while(searchScope.parent !== null){
 					searchScope = searchScope.parent;
-					isFound = searchScope.parent.find(root.children[0]);
+					isFound = searchScope.find(root.children[0]);
 				}
 			}
 			if(!isFound){
