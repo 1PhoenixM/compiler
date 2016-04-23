@@ -141,8 +141,8 @@ var AbstractSyntaxTree = (function () {
     };
     ;
     //Adds an AST leaf node
-    AbstractSyntaxTree.prototype.addLeafNode = function (nodeName, nodeVal, setType) {
-        var n = new ASTLeafNode(nodeName, nodeVal, setType, null, [], false);
+    AbstractSyntaxTree.prototype.addLeafNode = function (nodeName, nodeVal, setType, lineNumber) {
+        var n = new ASTLeafNode(nodeName, nodeVal, setType, lineNumber, null, [], false);
         n.parent = this.current;
         n.parent.children.push(n);
         activeValue = n;
@@ -197,19 +197,21 @@ var ASTBranchNode = (function (_super) {
     }
     return ASTBranchNode;
 })(ASTNode);
-//The abstract syntax tree leaf node class. Each represents a type, value, or variable.
+//The abstract syntax tree leaf node class. Each represents a type, value, or variable in the program
 var ASTLeafNode = (function (_super) {
     __extends(ASTLeafNode, _super);
-    function ASTLeafNode(nodeName, nodeVal, nodeType, parent, children, visited) {
+    function ASTLeafNode(nodeName, nodeVal, nodeType, lineNumber, parent, children, visited) {
         _super.call(this, nodeName, parent, children, visited);
         this.nodeName = nodeName;
         this.nodeVal = nodeVal;
         this.nodeType = nodeType;
+        this.lineNumber = lineNumber;
         this.parent = parent;
         this.children = children;
         this.visited = visited;
         this.nodeVal = nodeVal;
         this.nodeType = nodeType;
+        this.lineNumber = lineNumber;
     }
     return ASTLeafNode;
 })(ASTNode);
@@ -225,15 +227,18 @@ var SymbolTable = (function () {
     //Adds a new scope.
     SymbolTable.prototype.addBranchNode = function (nodeName, nodeVal) {
         var n = new SymbolTableNode(nodeName, nodeVal, {}, null, []);
-        /*if(n.nodeName === "Program"){
+        if (n.nodeVal === 0) {
             this.root = n;
             this.current = this.root;
-        }*/
-        n.parent = this.current;
-        n.parent.children.push(n);
-        this.current = n;
+        }
+        else {
+            n.parent = this.current;
+            n.parent.children.push(n);
+            this.current = n;
+        }
     };
     ;
+    //Unused
     SymbolTable.prototype.addLeafNode = function (nodeName, nodeVal) {
         var n = new SymbolTableNode(nodeName, nodeVal, {}, null, []);
         if (n.nodeName === "Program") {
@@ -244,10 +249,12 @@ var SymbolTable = (function () {
         }
     };
     ;
+    //Backtracks
     SymbolTable.prototype.backtrack = function () {
         this.current = this.current.parent;
     };
     ;
+    //Prints the symbol table
     SymbolTable.prototype.toString = function (rootNode, indent) {
         log("\n" + "Symbol Table Scope: " + rootNode.nodeVal + " = " + JSON.stringify(rootNode.map));
         if (rootNode !== null) {
@@ -579,12 +586,12 @@ function parseProgram() {
         log("Program " + programCount + "<br />");
         log("Concrete Syntax Tree for Program " + programCount + ":<br />"); //fixing logging
         CST.toString(CST.root, "-");
-        semanticAnalysis(CST);
+        semanticAnalysis(CST, programCount);
         //Next program
-        CST = new ConcreteSyntaxTree(null, null);
+        CST = new ConcreteSyntaxTree(null, null); //reset CST
         if (currentToken < tokens.length) {
             parseProgram();
-        }
+        } //parse the next program if there is one
     }
     else {
         log("Parse Error - Missing End of Program marker, '$'.");
@@ -881,11 +888,10 @@ function verboseToggle() {
 /* Project Two */
 //The abstract syntax tree
 var AST = new AbstractSyntaxTree(null, null);
-//Create new current scope
-var currentScope = new SymbolTableNode('Scope', 0, {}, null, []);
-//var firstScope = currentScope;
+//The current scope pointer
+var currentScope = null;
 //The symbol table (tree)
-var SymbolTableInstance = new SymbolTable(currentScope, currentScope);
+var SymbolTableInstance = new SymbolTable(null, null);
 //The nodes that transfer from CST to AST
 //Translates CST nodes into AST nodes.
 var ASTNodes = {
@@ -905,19 +911,25 @@ var ASTNodes = {
 };
 /*Project 2 */
 //Step 3 - Input: CST, Output: AST
-function semanticAnalysis(CST) {
-    buildAST(CST.root, 0);
-    log("Abstract Syntax Tree for Program <>: <br />");
+function semanticAnalysis(CST, programCount) {
+    //From the CST, build the AST	
+    buildAST(CST.root);
+    //Print the AST
+    log("Abstract Syntax Tree for Program " + programCount + ": <br />");
     AST.toString(AST.root, "-");
+    //Scope and type check the AST
     scopeAndTypeCheck(AST.root);
     //currentScope.toString();
+    //Print the symbol table
     SymbolTableInstance.toString(SymbolTableInstance.root, "-");
-    //reset these
-    AST = new AbstractSyntaxTree(null, null);
-    currentScope = new SymbolTableNode('Scope', 0, {}, null, []);
-    SymbolTableInstance = new SymbolTable(currentScope, currentScope);
-    activeValue = null;
+    //Generate machine code
     codeGeneration();
+    //reset all these globals
+    AST = new AbstractSyntaxTree(null, null);
+    currentScope = null;
+    SymbolTableInstance = new SymbolTable(null, null);
+    activeValue = null;
+    //codeGeneration();
     //document.getElementById('machine-code').innerHTML += "Semantic Analysis complete!" + "<br />"; //multiple programs
     //CST.root.children - if important, add branch or leaf to AST
     //traverse in order depth first CST and select important nodes
@@ -926,19 +938,28 @@ function semanticAnalysis(CST) {
     //scope check - w/ symbol table
     //type check
 }
+//This is a saved ASTLeafNode, the last one that was visited. Its type will be set when we know what kind of Exp it is.
 var activeValue = null;
 //next step: AST and symbol table classes like CST one. report errors & warnings. cst duplication of nodes?
 //recursive calls need to remember which child (leaf) was evaluated last and continue from there
 //todo: blocks should have stmt children so scopes can close. types need to be checked earlier. step through this
-function buildAST(root, childNumber) {
+function buildAST(root) {
+    //If not a leaf node...
     if (root !== null && root.children.length > 0) {
+        //For each CST child...
         for (var i = 0; i < root.children.length; i++) {
+            //If the CST node is useful to the AST...
             if (typeof ASTNodes[root.children[i].nodeName] !== "undefined") {
                 //Rename from CST to AST nodeName
+                //Block
                 if (ASTNodes[root.children[i].nodeName] === "Block") {
                     //StatementList -> a Statement and another StatementList which may or may not be empty
                     //Statement is some kind of Statement that translates to an AST node..
+                    //Add a block AST node
                     AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name.
+                    //Recurse over Statements
+                    buildAST(root.children[i]);
+                    //Back up to Block when done
                     AST.backtrack();
                 }
                 else if (root.nodeName === "IntegerExpression") {
@@ -964,16 +985,26 @@ function buildAST(root, childNumber) {
                 else if (ASTNodes[root.children[i].nodeName] === "VariableDeclaration") {
                     //has a t_type? child and an ID -> t_char
                     AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
-                    AST.addLeafNode("LeftVal", root.children[i].children[0].nodeVal, true);
-                    AST.addLeafNode("RightVal", root.children[i].children[1].children[0].nodeVal, true);
+                    AST.addLeafNode("LeftVal", root.children[i].children[0].nodeVal, true, root.children[i].children[0].lineNumber);
+                    AST.addLeafNode("RightVal", root.children[i].children[1].children[0].nodeVal, true, root.children[i].children[1].children[0].lineNumber);
                     AST.backtrack();
                 }
                 else if (ASTNodes[root.children[i].nodeName] === "Assignment") {
                     AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
                     //has an ID -> t_char and an Expression which is some kind of Expression
                     //try different types
-                    AST.addLeafNode("LeftVal", root.children[i].children[0].children[0].nodeVal, true);
-                    AST.addLeafNode("RightVal", root.children[i].children[2].children[0].children[0].nodeVal, true);
+                    AST.addLeafNode("LeftVal", root.children[i].children[0].children[0].nodeVal, true, root.children[i].children[0].children[0].lineNumber);
+                    if (root.children[i].children[2].children[0].nodeName === "IntegerExpression") {
+                        if (root.children[i].children[2].children[0].children.length > 2 && root.children[i].children[2].children[0].children[1].nodeName === "T_intop") {
+                            AST.addLeafNode("RightVal", findIDInAdd(root.children[i].children[2].children[0]), true, root.children[i].children[2].children[0].children[0].lineNumber);
+                        }
+                        else {
+                            AST.addLeafNode("RightVal", root.children[i].children[2].children[0].children[0].nodeVal, true, root.children[i].children[2].children[0].children[0].lineNumber);
+                        }
+                    }
+                    else {
+                        AST.addLeafNode("RightVal", root.children[i].children[2].children[0].children[0].nodeVal, true, root.children[i].children[2].children[0].children[0].lineNumber);
+                    }
                     AST.backtrack();
                 }
                 else if (ASTNodes[root.children[i].nodeName] === "Output") {
@@ -988,10 +1019,10 @@ function buildAST(root, childNumber) {
                     //print string, save whole string
                     AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
                     if (root.children[i].children[2].children[0].nodeName === "ID") {
-                        AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal, true);
+                        AST.addLeafNode("OutputVal", root.children[i].children[2].children[0].children[0].nodeVal, true, root.children[i].children[2].children[0].children[0].lineNumber);
                     }
                     else {
-                        AST.addLeafNode("OutputVal", findIDInAdd(root.children[i].children[2].children[0]), true);
+                        AST.addLeafNode("OutputVal", findIDInAdd(root.children[i].children[2].children[0]), true, 0);
                     }
                     AST.backtrack();
                 }
@@ -1000,8 +1031,14 @@ function buildAST(root, childNumber) {
                     //to do: token differentiation between !== and ==. store values in symbol table
                     AST.addBranchNode(ASTNodes[root.children[i].nodeName]); //with new name
                     AST.addBranchNode("CompareTest");
-                    AST.addLeafNode("LeftVal", root.children[i].children[1].children[0].nodeVal, true);
-                    AST.addLeafNode("RightVal", root.children[i].children[0].children[0], true);
+                    if (root.children[i].children[1].children[1].children.length !== 0) {
+                        AST.addLeafNode("LeftVal", root.children[i].children[1].children[1].children[0].children[0].nodeVal, true, root.children[i].children[1].children[1].children[0].children[0].lineNumber);
+                        AST.addLeafNode("RightVal", root.children[i].children[1].children[3].children[0].children[0].nodeVal, true, root.children[i].children[1].children[3].children[0].children[0].lineNumber);
+                    }
+                    else {
+                        AST.addLeafNode("LeftVal", root.children[i].children[1].children[1].children[0].nodeVal, true, root.children[i].children[1].children[1].children[0].lineNumber);
+                        AST.addLeafNode("RightVal", root.children[i].children[1].children[1].children[0].nodeVal, true, root.children[i].children[1].children[1].children[0].lineNumber);
+                    }
                     AST.backtrack();
                     AST.addBranchNode("Block");
                     AST.backtrack();
@@ -1015,14 +1052,17 @@ function buildAST(root, childNumber) {
                 }
             }
             var saved = root.children[i];
-            //root.children.splice(i, 1); //remove this
-            buildAST(saved, i);
+            //Block handles own recursive call
+            if (ASTNodes[root.children[i].nodeName] !== "Block") {
+                buildAST(saved);
+            }
         }
     }
     else {
         return;
     }
 }
+//If an int expression contains an ID, such as in 1+2+3+a, this finds it
 function findIDInAdd(intExpr) {
     if (intExpr.nodeName === "IntegerExpression") {
         if (intExpr.children !== null) {
@@ -1031,7 +1071,7 @@ function findIDInAdd(intExpr) {
                     return intExpr.children[2].children[0].children[0].nodeVal;
                 }
                 else {
-                    findIDInAdd(intExpr.children[2].children[0]);
+                    return findIDInAdd(intExpr.children[2].children[0]);
                 }
             }
             else {
@@ -1061,22 +1101,38 @@ function findIDInAdd(intExpr) {
 //type checking
 //check a = a
 function scopeAndTypeCheck(root) {
+    //Block sets scope
     if (root.nodeName === "Block") {
         if (root.visited === true) {
             currentScope = currentScope.parent;
         }
-        root.visited = true;
-        for (var i = 0; i < root.children.length; i++) {
-            scopeAndTypeCheck(root.children[i]);
+        else {
+            root.visited = true;
+            //Make new scope for new block
+            if (currentScope !== null) {
+                var oldScope = currentScope; //toString the scope tree
+                currentScope = new SymbolTableNode('Scope', currentScope.nodeVal + 1, {}, currentScope, []); //should start off w/ a base scope
+                oldScope.children.push(currentScope);
+                currentScope.parent = oldScope;
+            }
+            else {
+                currentScope = new SymbolTableNode('Scope', 0, {}, null, []);
+                SymbolTableInstance = new SymbolTable(currentScope, currentScope);
+            }
+            //Check each Statement
+            for (var i = 0; i < root.children.length; i++) {
+                scopeAndTypeCheck(root.children[i]);
+            }
+            //scopeAndTypeCheck(root); //will close the scope
+            //When done checking all Statements under this Block, close the scope and return to the parent scope
+            if (currentScope.parent !== null) {
+                currentScope = currentScope.parent;
+            }
         }
-        var oldScope = currentScope; //toString the scope tree
-        currentScope = new SymbolTableNode('Scope', currentScope.nodeVal + 1, {}, currentScope, []);
-        oldScope.children.push(currentScope);
-        currentScope.parent = oldScope;
     }
     else if (root.nodeName === "VariableDeclaration") {
         if (currentScope.find(root.children[1])) {
-            log("Semantic Analysis Warning - Variable " + root.children[1].nodeVal + " was redeclared."); //errorlog() to end compilation
+            log("Semantic Analysis Warning - Variable " + root.children[1].nodeVal + " was redeclared on line " + root.children[1].lineNumber); //errorlog() to end compilation
         }
         else {
             currentScope.addVariable(root.children[1], root.children[0]);
@@ -1084,6 +1140,7 @@ function scopeAndTypeCheck(root) {
     }
     else if (root.nodeName === "Assignment") {
         var isFound = false;
+        var parentType = "";
         //check if var exists in current scope in symbol table - and parent scope, if not
         if (root.children[0].nodeName === "LeftVal") {
             isFound = currentScope.find(root.children[0]);
@@ -1091,16 +1148,29 @@ function scopeAndTypeCheck(root) {
         if (!isFound) {
             if (currentScope.parent !== null) {
                 var searchScope = currentScope.parent;
-                while (searchScope.parent !== null) {
+                isFound = searchScope.find(root.children[0]);
+                if (isFound) {
+                    parentType = searchScope.getType(root.children[0]);
+                }
+                while (searchScope.parent !== null && !isFound) {
                     searchScope = searchScope.parent;
                     isFound = searchScope.find(root.children[0]);
+                    if (isFound) {
+                        parentType = searchScope.getType(root.children[0]);
+                    }
                 }
             }
             if (!isFound) {
-                log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
+                log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
             }
         }
-        var type = currentScope.getType(root.children[0]);
+        var type = "";
+        if (parentType === "") {
+            type = currentScope.getType(root.children[0]);
+        }
+        else {
+            type = parentType;
+        }
         var otherType = "";
         if (root.children[1].nodeType === "ID") {
             otherType = currentScope.getType(root.children[1]);
@@ -1111,10 +1181,10 @@ function scopeAndTypeCheck(root) {
         //check if type is correct
         //check if a = b; a and b are same type
         if (otherType !== "" && type !== otherType) {
-            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + otherType);
+            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + otherType + " on line " + root.children[0].lineNumber);
         }
         else if (otherType === "" && type !== root.children[1].nodeType) {
-            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + root.children[1].nodeType);
+            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + root.children[1].nodeType + " on line " + root.children[0].lineNumber);
         }
     }
     else if (root.nodeName === "Output") {
@@ -1128,13 +1198,14 @@ function scopeAndTypeCheck(root) {
         if (!isFound && root.children[0].nodeVal !== "?") {
             if (currentScope.parent !== null) {
                 var searchScope = currentScope.parent;
-                while (searchScope.parent !== null) {
+                isFound = searchScope.find(root.children[0]);
+                while (searchScope.parent !== null && !isFound) {
                     searchScope = searchScope.parent;
                     isFound = searchScope.find(root.children[0]);
                 }
             }
             if (!isFound) {
-                log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
+                log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
             }
         }
     }
@@ -1144,6 +1215,7 @@ function scopeAndTypeCheck(root) {
     }
     else if (root.nodeName === "CompareTest") {
         var isFound = false;
+        var parentType = "";
         //check if var exists in current scope in symbol table - and parent scope, if not
         if (root.children[0].nodeName === "LeftVal") {
             isFound = currentScope.find(root.children[0]);
@@ -1151,30 +1223,61 @@ function scopeAndTypeCheck(root) {
         if (!isFound) {
             if (currentScope.parent !== null) {
                 var searchScope = currentScope.parent;
-                while (searchScope.parent !== null) {
+                isFound = searchScope.find(root.children[0]);
+                if (isFound) {
+                    parentType = searchScope.getType(root.children[0]);
+                }
+                while (searchScope.parent !== null && !isFound) {
                     searchScope = searchScope.parent;
                     isFound = searchScope.find(root.children[0]);
+                    if (isFound) {
+                        parentType = searchScope.getType(root.children[0]);
+                    }
                 }
             }
             if (!isFound) {
-                log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found.");
+                log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
             }
         }
-        var type = currentScope.getType(root.children[0]);
-        if (type !== root.children[1].nodeType) {
-            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to " + root.children[1].nodeType);
+        var type = "";
+        if (parentType === "") {
+            type = currentScope.getType(root.children[0]);
+        }
+        else {
+            type = parentType;
+        }
+        var otherType = "";
+        if (root.children[1].nodeType === "ID") {
+            otherType = currentScope.getType(root.children[1]);
+        }
+        //type match - integerExpression, stringExpression, booleanExpression
+        //does value (root.children[1]) match int (0-9), string ("") or boolean (T/F)? also a = a
+        //check if var exists in current scope in symbol table - and parent scope, if not
+        //check if type is correct
+        //check if a = b; a and b are same type
+        if (otherType !== "" && type !== otherType) {
+            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to type " + otherType + " on line " + root.children[0].lineNumber);
+        }
+        else if (otherType === "" && type !== root.children[1].nodeType) {
+            log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to type " + root.children[1].nodeType + " on line " + root.children[0].lineNumber);
         }
     }
     else {
     }
 }
+//Contains 256 nybbles of machine code
+var machineCode = [];
+//Contains 32 lines of 8 nybbles each
+var machineCodeStrings = [];
 /* Final project */
 //Step 4 - Input: AST & symbol table, Output: Equivalent hex codes
 function codeGeneration() {
+    //static table & jump table
     //instruction selection
     //translate into hex/bin
     //traverse AST
-    document.getElementById('hex-code').innerHTML = "<br /> Hex codes TBD...";
+    //Empty code section
+    document.getElementById('hex-code').innerHTML = "";
     //VariableDeclaration: A9 00 8D T0 XX
     //Assignment (Constant): A9 0<digit> 8D T0 XX
     //Assignment (From Var): AD T1 XX 8D T0 XX
@@ -1188,10 +1291,109 @@ function codeGeneration() {
     //Runtime image consist of code in hex, static space where vars are, and the rest is heap space where strings can be. Unused heap space should be 00, to fill from 00 - FF in the address space, creating an executable of 256 B, fixed size
     //Static table, jump table, backpatching to replace correct references once known after traversing the code
     //Instruction format, hex format
+    //256 nybbles of 00 in the array
+    for (var b = 0; b < 257; b++) {
+        machineCode.push("00");
+    }
+    //Traverse AST, write 6502 codes into array
     writeCodes(AST.root);
+    machineCode[ncount] = "00"; //finish code
+    ncount++; //static space begins here
+    //use this to...
+    //backpatch w/ tables
+    //One line of 8 nybbles
+    var codeStr = "";
+    //Keeps track of nybbles
+    var nybbleCounter = 0;
+    //Holds onto first nybble in the line
+    var firstNybble = 0;
+    //For each nybble...
+    for (var b = 0; b < 257; b++) {
+        //Put in a line and increment counter
+        codeStr += " " + machineCode[b];
+        nybbleCounter++;
+        //When multiple of 8 reached...
+        if (nybbleCounter % 8 === 0) {
+            //First nybble is saved
+            firstNybble = nybbleCounter - 8;
+            //Create a line with the nybble # and 8 nybbles of code
+            machineCodeStrings.push("<b>" + firstNybble.toString(16) + "</b>   ||" + codeStr);
+            //Reset for the next line
+            codeStr = "";
+        }
+    }
+    //For each line, write it into the code section with a line break
+    for (var e = 0; e < machineCodeStrings.length; e++) {
+        document.getElementById('hex-code').innerHTML += machineCodeStrings[e] + "<br />";
+    }
 }
+//Keeps track of which nybble to write next
+var ncount = 0;
 function writeCodes(root) {
     /*if(root.nodeName === "VariableDeclaration"){
         log("A9 00 8D T0 XX");
     }*/
+    if (root.nodeName === "Block") {
+        //Write codes for all children
+        for (var i = 0; i < root.children.length; i++) {
+            writeCodes(root.children[i]);
+        }
+    }
+    else if (root.nodeName === "VariableDeclaration") {
+        machineCode[ncount] = "A9"; //load the accumulator
+        ncount++;
+        machineCode[ncount] = "00"; //with 00 - all variables are initialized to 00
+        ncount++;
+        machineCode[ncount] = "8D"; //save 00
+        ncount++;
+        machineCode[ncount] = "T0"; //at this memory location for the new variable
+        ncount++;
+        machineCode[ncount] = "XX"; //extra address space
+        ncount++;
+    }
+    else if (root.nodeName === "Assignment") {
+        machineCode[ncount] = "A9"; //load the accumulator
+        ncount++;
+        machineCode[ncount] = "0" + root.children[1].nodeVal; //with the assigned value - may not work for added numbers
+        ncount++;
+        machineCode[ncount] = "8D"; //save the assigned value
+        ncount++;
+        machineCode[ncount] = "T0"; //in the variable's memory location
+        ncount++;
+        machineCode[ncount] = "XX"; //extra address space
+        ncount++;
+    }
+    else if (root.nodeName === "Output") {
+        machineCode[ncount] = "AC"; //load the y register
+        ncount++;
+        machineCode[ncount] = "T0"; //from this memory location
+        ncount++;
+        machineCode[ncount] = "XX"; //extra address space
+        ncount++;
+        machineCode[ncount] = "A2"; //load the x register
+        ncount++;
+        machineCode[ncount] = "01"; //system code for "print" for ints only
+        ncount++;
+        machineCode[ncount] = "FF"; //system call
+        ncount++;
+    }
+    else if (root.nodeName === "If" || root.nodeName === "While") {
+        machineCode[ncount] = "AE"; //load the y register?
+        ncount++;
+        machineCode[ncount] = "T0"; //from this memory location
+        ncount++;
+        machineCode[ncount] = "XX"; //extra address space
+        ncount++;
+        machineCode[ncount] = "EC"; //compare to and set z flag
+        ncount++;
+        machineCode[ncount] = "T1"; //this memory location
+        ncount++;
+        machineCode[ncount] = "XX"; //extra address space
+        ncount++;
+        machineCode[ncount] = "D0"; //check z flag and decide to jump or not
+        ncount++;
+        machineCode[ncount] = "J0"; //jump this many bytes
+        ncount++;
+        writeCodes(root.children[1]); //write the block
+    }
 }
