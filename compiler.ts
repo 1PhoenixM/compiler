@@ -134,7 +134,7 @@ class AbstractSyntaxTree{
 	
 	//Adds an AST leaf node
 	addLeafNode(nodeName: string, nodeVal: string, setType: boolean, lineNumber: number){ 
-		var n = new ASTLeafNode(nodeName, nodeVal, setType, lineNumber, null, [], false);
+		var n = new ASTLeafNode(nodeName, nodeVal, setType, lineNumber, false, null, [], false);
 		n.parent = this.current;
 		n.parent.children.push(n);
 		activeValue = n;
@@ -184,11 +184,12 @@ class ASTBranchNode extends ASTNode{
 
 //The abstract syntax tree leaf node class. Each represents a type, value, or variable in the program
 class ASTLeafNode extends ASTNode{
-    constructor(public nodeName, public nodeVal, public nodeType, public lineNumber, public parent, public children, public visited){
+    constructor(public nodeName, public nodeVal, public nodeType, public lineNumber, public isUsed, public parent, public children, public visited){
 		super(nodeName, parent, children, visited);
 		this.nodeVal = nodeVal;
 		this.nodeType = nodeType;
 		this.lineNumber = lineNumber;
+		this.isUsed = isUsed;
     }
 }
 
@@ -287,6 +288,35 @@ class SymbolTableNode{
 		log("<br />" + "Symbol Table: " + "<br />" + JSON.stringify(this.map));
 	}
 }
+
+class StaticTableEntry{
+	
+	//Entries are created to map memory locations onto variables in the program
+	constructor(public temp, public variable, public scope){
+		this.temp = temp;
+		this.variable = variable;
+		this.scope = scope;
+    }
+	
+	setAddress(address: string){
+		this.address = address;
+	}
+	
+}
+
+class JumpTableEntry{
+	
+	//Entries are created to map temporary jump placeholders to their actual jump distance
+	constructor(public temp){
+		this.temp = temp;
+    }
+	
+	setDistance(distance: string){
+		this.distance = distance;
+	}
+	
+}
+
 
 //The deterministic finite automaton (used like a matrix)
 //Gives paths from state to state for accepted strings of characters.
@@ -1249,6 +1279,9 @@ function scopeAndTypeCheck(root: ASTNode){
 			if(!isFound){
 				log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
 			}
+			else{
+				root.children[0].isUsed = true;
+			}
 		}
 		
 		var type = ""
@@ -1299,6 +1332,9 @@ function scopeAndTypeCheck(root: ASTNode){
 			if(!isFound){
 				log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
 			}
+			else{
+				root.children[0].isUsed = true;
+			}
 		}
 		
 		
@@ -1337,6 +1373,9 @@ function scopeAndTypeCheck(root: ASTNode){
 			}
 			if(!isFound){
 				log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
+			}
+			else{
+				root.children[0].isUsed = true;
 			}
 		}
 		
@@ -1416,6 +1455,16 @@ function codeGeneration(){
   ncount++; //static space begins here
   //use this to...
   //backpatch w/ tables
+  for(var i = 0; i < staticTable.length; i++){
+	  staticTable[i].setAddress(ncount.toString(16));
+	  //replace all instances
+	  ncount++;
+  }
+  
+  for(var i = 0; i < jumpTable.length; i++){
+	  //get jump distance
+	  //replace all instances
+  }
   
   //One line of 8 nybbles
   var codeStr = "";
@@ -1449,10 +1498,17 @@ function codeGeneration(){
 
 //Keeps track of which nybble to write next
 var ncount = 0;
+
+//Keeps track of the heap space
+var heapcount = 255;
+
+//Static Entries - track static variables
+var StaticTableEntry[] staticTable = [];
+
+//Jump Entries - track jumps
+var JumpTableEntry[] jumpTable = [];
+
 function writeCodes(root: ASTNode){
-	/*if(root.nodeName === "VariableDeclaration"){
-		log("A9 00 8D T0 XX");
-	}*/
 	if(root.nodeName === "Block"){
 		//Write codes for all children
 		for(var i = 0; i < root.children.length; i++){
@@ -1470,11 +1526,32 @@ function writeCodes(root: ASTNode){
 		ncount++;
 		machineCode[ncount] = "XX"; //extra address space
 		ncount++;
+		staticTable.push(new StaticTableEntry("T0", root.children[1].nodeVal, 0));
 	}
 	else if(root.nodeName === "Assignment"){
 		machineCode[ncount] = "A9"; //load the accumulator
 		ncount++;
-		machineCode[ncount] = "0" + root.children[1].nodeVal; //with the assigned value - may not work for added numbers
+		if(root.children[1].nodeType === "string"){ //stringexp
+			//have heap space pointer...
+			machineCode[heapcount] = "00";
+			heapcount--; 
+			for(var i = 0; i < root.children[1].nodeVal.length; i++){
+				machineCode[heapcount] = root.children[1].nodeVal.charCodeAt(i);
+				heapcount--;
+			}
+			machineCode[ncount] = (heapcount+1).toString(16); //static pointer where string begins
+		}
+		else if(root.children[1].nodeType === "boolean"){ //boolexp
+			if(root.children[1].nodeVal === "true"){
+				machineCode[ncount] = "01"; //true
+			}
+			else{
+				machineCode[ncount] = "00"; //false
+			}
+		}
+		else{ //intexp
+			machineCode[ncount] = "0" + root.children[1].nodeVal; //with the assigned value - may not work for added numbers
+		}
 		ncount++;
 		machineCode[ncount] = "8D"; //save the assigned value
 		ncount++;
@@ -1514,6 +1591,7 @@ function writeCodes(root: ASTNode){
 		ncount++;
 		machineCode[ncount] = "J0"; //jump this many bytes
 		ncount++;
+		jumpTable.push(new JumpTableEntry("J0"));
 		writeCodes(root.children[1]); //write the block
 	}
 }

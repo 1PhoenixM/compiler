@@ -142,7 +142,7 @@ var AbstractSyntaxTree = (function () {
     ;
     //Adds an AST leaf node
     AbstractSyntaxTree.prototype.addLeafNode = function (nodeName, nodeVal, setType, lineNumber) {
-        var n = new ASTLeafNode(nodeName, nodeVal, setType, lineNumber, null, [], false);
+        var n = new ASTLeafNode(nodeName, nodeVal, setType, lineNumber, false, null, [], false);
         n.parent = this.current;
         n.parent.children.push(n);
         activeValue = n;
@@ -200,18 +200,20 @@ var ASTBranchNode = (function (_super) {
 //The abstract syntax tree leaf node class. Each represents a type, value, or variable in the program
 var ASTLeafNode = (function (_super) {
     __extends(ASTLeafNode, _super);
-    function ASTLeafNode(nodeName, nodeVal, nodeType, lineNumber, parent, children, visited) {
+    function ASTLeafNode(nodeName, nodeVal, nodeType, lineNumber, isUsed, parent, children, visited) {
         _super.call(this, nodeName, parent, children, visited);
         this.nodeName = nodeName;
         this.nodeVal = nodeVal;
         this.nodeType = nodeType;
         this.lineNumber = lineNumber;
+        this.isUsed = isUsed;
         this.parent = parent;
         this.children = children;
         this.visited = visited;
         this.nodeVal = nodeVal;
         this.nodeType = nodeType;
         this.lineNumber = lineNumber;
+        this.isUsed = isUsed;
     }
     return ASTLeafNode;
 })(ASTNode);
@@ -1163,6 +1165,9 @@ function scopeAndTypeCheck(root) {
             if (!isFound) {
                 log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
             }
+            else {
+                root.children[0].isUsed = true;
+            }
         }
         var type = "";
         if (parentType === "") {
@@ -1207,6 +1212,9 @@ function scopeAndTypeCheck(root) {
             if (!isFound) {
                 log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
             }
+            else {
+                root.children[0].isUsed = true;
+            }
         }
     }
     else if (root.nodeName === "If" || root.nodeName === "While") {
@@ -1237,6 +1245,9 @@ function scopeAndTypeCheck(root) {
             }
             if (!isFound) {
                 log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
+            }
+            else {
+                root.children[0].isUsed = true;
             }
         }
         var type = "";
@@ -1329,10 +1340,9 @@ function codeGeneration() {
 }
 //Keeps track of which nybble to write next
 var ncount = 0;
+//Keeps track of the heap space
+var heapcount = 255;
 function writeCodes(root) {
-    /*if(root.nodeName === "VariableDeclaration"){
-        log("A9 00 8D T0 XX");
-    }*/
     if (root.nodeName === "Block") {
         //Write codes for all children
         for (var i = 0; i < root.children.length; i++) {
@@ -1354,7 +1364,27 @@ function writeCodes(root) {
     else if (root.nodeName === "Assignment") {
         machineCode[ncount] = "A9"; //load the accumulator
         ncount++;
-        machineCode[ncount] = "0" + root.children[1].nodeVal; //with the assigned value - may not work for added numbers
+        if (root.children[1].nodeType === "string") {
+            //have heap space pointer...
+            machineCode[heapcount] = "00";
+            heapcount--;
+            for (var i = 0; i < root.children[1].nodeVal.length; i++) {
+                machineCode[heapcount] = root.children[1].nodeVal.charCodeAt(i);
+                heapcount--;
+            }
+            machineCode[ncount] = (heapcount + 1).toString(16); //static pointer where string begins
+        }
+        else if (root.children[1].nodeType === "boolean") {
+            if (root.children[1].nodeVal === "true") {
+                machineCode[ncount] = "01"; //true
+            }
+            else {
+                machineCode[ncount] = "00"; //false
+            }
+        }
+        else {
+            machineCode[ncount] = "0" + root.children[1].nodeVal; //with the assigned value - may not work for added numbers
+        }
         ncount++;
         machineCode[ncount] = "8D"; //save the assigned value
         ncount++;
