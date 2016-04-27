@@ -292,10 +292,11 @@ class SymbolTableNode{
 class StaticTableEntry{
 	
 	//Entries are created to map memory locations onto variables in the program
-	constructor(public temp, public variable, public scope){
+	constructor(public temp, public variable, public scope, public address){
 		this.temp = temp;
 		this.variable = variable;
 		this.scope = scope;
+		//address is not yet known at creation time
     }
 	
 	setAddress(address: string){
@@ -307,8 +308,9 @@ class StaticTableEntry{
 class JumpTableEntry{
 	
 	//Entries are created to map temporary jump placeholders to their actual jump distance
-	constructor(public temp){
+	constructor(public temp, public distance){
 		this.temp = temp;
+		//distance is not yet known at creation time
     }
 	
 	setDistance(distance: string){
@@ -1503,10 +1505,10 @@ var ncount = 0;
 var heapcount = 255;
 
 //Static Entries - track static variables
-var StaticTableEntry[] staticTable = [];
+var staticTable = [];
 
 //Jump Entries - track jumps
-var JumpTableEntry[] jumpTable = [];
+var jumpTable = [];
 
 function writeCodes(root: ASTNode){
 	if(root.nodeName === "Block"){
@@ -1526,7 +1528,7 @@ function writeCodes(root: ASTNode){
 		ncount++;
 		machineCode[ncount] = "XX"; //extra address space
 		ncount++;
-		staticTable.push(new StaticTableEntry("T0", root.children[1].nodeVal, 0));
+		staticTable.push(new StaticTableEntry("T0", root.children[1].nodeVal, 0, ""));
 	}
 	else if(root.nodeName === "Assignment"){
 		machineCode[ncount] = "A9"; //load the accumulator
@@ -1591,7 +1593,7 @@ function writeCodes(root: ASTNode){
 		ncount++;
 		machineCode[ncount] = "J0"; //jump this many bytes
 		ncount++;
-		jumpTable.push(new JumpTableEntry("J0"));
+		jumpTable.push(new JumpTableEntry("J0", ""));
 		writeCodes(root.children[1]); //write the block
 	}
 }

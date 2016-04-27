@@ -313,6 +313,36 @@ var SymbolTableNode = (function () {
     };
     return SymbolTableNode;
 })();
+var StaticTableEntry = (function () {
+    //Entries are created to map memory locations onto variables in the program
+    function StaticTableEntry(temp, variable, scope, address) {
+        this.temp = temp;
+        this.variable = variable;
+        this.scope = scope;
+        this.address = address;
+        this.temp = temp;
+        this.variable = variable;
+        this.scope = scope;
+        //address is not yet known at creation time
+    }
+    StaticTableEntry.prototype.setAddress = function (address) {
+        this.address = address;
+    };
+    return StaticTableEntry;
+})();
+var JumpTableEntry = (function () {
+    //Entries are created to map temporary jump placeholders to their actual jump distance
+    function JumpTableEntry(temp, distance) {
+        this.temp = temp;
+        this.distance = distance;
+        this.temp = temp;
+        //distance is not yet known at creation time
+    }
+    JumpTableEntry.prototype.setDistance = function (distance) {
+        this.distance = distance;
+    };
+    return JumpTableEntry;
+})();
 //The deterministic finite automaton (used like a matrix)
 //Gives paths from state to state for accepted strings of characters.
 var DFA = { 's1': { '+': 's2',
@@ -1312,6 +1342,13 @@ function codeGeneration() {
     ncount++; //static space begins here
     //use this to...
     //backpatch w/ tables
+    for (var i = 0; i < staticTable.length; i++) {
+        staticTable[i].setAddress(ncount.toString(16));
+        //replace all instances
+        ncount++;
+    }
+    for (var i = 0; i < jumpTable.length; i++) {
+    }
     //One line of 8 nybbles
     var codeStr = "";
     //Keeps track of nybbles
@@ -1342,6 +1379,10 @@ function codeGeneration() {
 var ncount = 0;
 //Keeps track of the heap space
 var heapcount = 255;
+//Static Entries - track static variables
+var staticTable = [];
+//Jump Entries - track jumps
+var jumpTable = [];
 function writeCodes(root) {
     if (root.nodeName === "Block") {
         //Write codes for all children
@@ -1360,6 +1401,7 @@ function writeCodes(root) {
         ncount++;
         machineCode[ncount] = "XX"; //extra address space
         ncount++;
+        staticTable.push(new StaticTableEntry("T0", root.children[1].nodeVal, 0, ""));
     }
     else if (root.nodeName === "Assignment") {
         machineCode[ncount] = "A9"; //load the accumulator
@@ -1424,6 +1466,7 @@ function writeCodes(root) {
         ncount++;
         machineCode[ncount] = "J0"; //jump this many bytes
         ncount++;
+        jumpTable.push(new JumpTableEntry("J0", ""));
         writeCodes(root.children[1]); //write the block
     }
 }
