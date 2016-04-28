@@ -468,7 +468,7 @@ var stringDFA = {
 
 
 function compile(){
-	if(typeof document.getElementById('error-log') !== "undefined"){
+	if(document.getElementById('error-log') !== null){
 		document.getElementById('error-log').innerHTML = "";
 		document.getElementById('error-log').id = 'machine-code';
 	}
@@ -640,7 +640,12 @@ var CST = new ConcreteSyntaxTree(null, null);
 function parse(){
    currentToken = 0;
    parseProgram();
-   document.getElementById('machine-code').innerHTML += logString + "Parse complete!";
+   if(document.getElementById('machine-code') !== null){
+	document.getElementById('machine-code').innerHTML += logString + "Parse complete!";
+   }
+   else{
+	document.getElementById('error-log').innerHTML += logString;
+   }
    logString = "";
    programCount = 0;
    //semanticAnalysis(CST);
@@ -662,7 +667,7 @@ function parseProgram(){
 	CST = new ConcreteSyntaxTree(null, null); //reset CST
 	if(currentToken < tokens.length) { parseProgram(); } //parse the next program if there is one
   }
-  else { log("Parse Error - Missing End of Program marker, '$'."); }
+  else { errorlog("Parse Error - Missing End of Program marker, '$'."); }
 }
 
 //Ensure a block starts with an open block delimiter, contains a statement list, and ends with a close block delimiter.
@@ -674,11 +679,11 @@ function parseBlock(){ //blocks inside blocks are handled recursively
 		 log("Block");
 	  }
 	  else{
-	     log("Parse Error - Expected '}' to end block, got " + tokens[currentToken].tokenName);
+	     errorlog("Parse Error - Expected '}' to end block, got " + tokens[currentToken].tokenName);
 	  }
   }
   else{
-	  log("Parse Error - Expected '{' to start a block, got " + tokens[currentToken].tokenName);
+	  errorlog("Parse Error - Expected '{' to start a block, got " + tokens[currentToken].tokenName);
   } 
   CST.backtrack();
 }
@@ -708,7 +713,7 @@ function parseStatement(){
   else if(match(["T_keywordIf"], true, false)){ parseIfStatement(); log("Statement"); }
   else if(match(["T_openBlock"], true, false)){ parseBlock(); log("Statement"); } 
   else{
-	log("Parse Error - Invalid statement, cannot begin with " + tokens[currentToken].tokenName);
+	errorlog("Parse Error - Invalid statement, cannot begin with " + tokens[currentToken].tokenName);
   }
   CST.backtrack();
 }
@@ -723,15 +728,15 @@ function parsePrintStatement(){
 			  log("Print Statement");
 		  }
 		  else{
-			  log("Parse Error - Expected ')' to end print statement, got " + tokens[currentToken].tokenName);
+			  errorlog("Parse Error - Expected ')' to end print statement, got " + tokens[currentToken].tokenName);
 		  }
 	  }
 	  else{
-		  log("Parse Error - Expected '(' for print statement, got " + tokens[currentToken].tokenName);
+		  errorlog("Parse Error - Expected '(' for print statement, got " + tokens[currentToken].tokenName);
 	  }
   }
   else{
-	  log("Parse Error - Expected 'print' to begin print statement, got " + tokens[currentToken].tokenName);
+	  errorlog("Parse Error - Expected 'print' to begin print statement, got " + tokens[currentToken].tokenName);
   }
   CST.backtrack();
 }
@@ -745,7 +750,7 @@ function parseAssignmentStatement(){
 	log("Assignment Statement");
   }
   else{
-	log("Parse Error - Expected = to assign ID to something, got " + tokens[currentToken].tokenName);  
+	errorlog("Parse Error - Expected = to assign ID to something, got " + tokens[currentToken].tokenName);  
   }
   CST.backtrack();
 }
@@ -759,7 +764,7 @@ function parseVarDeclStatement(){
 	  log("Variable Declaration");
   }
   else{
-	  log("Parse Error - Expected type declaration 'int', 'string' or 'boolean', got " + tokens[currentToken].tokenName);
+	  errorlog("Parse Error - Expected type declaration 'int', 'string' or 'boolean', got " + tokens[currentToken].tokenName);
   }
   CST.backtrack();
 }
@@ -774,7 +779,7 @@ function parseWhileStatement(){
 	log("While Statement");  
   }
   else{
-	  log("Parse Error - Expected 'while' to begin while statement, got " + tokens[currentToken].tokenName);
+	  errorlog("Parse Error - Expected 'while' to begin while statement, got " + tokens[currentToken].tokenName);
   }
   CST.backtrack();
 }
@@ -789,7 +794,7 @@ function parseIfStatement(){
 	  log("If Statement");
   }
   else{
-	  log("Parse Error - Expected 'if' to begin if statement, got " + tokens[currentToken].tokenName);
+	  errorlog("Parse Error - Expected 'if' to begin if statement, got " + tokens[currentToken].tokenName);
   }
   CST.backtrack();
 }
@@ -816,7 +821,7 @@ function parseIntExpr(){
 			 log("Integer Expression");
 		}
 		else{
-			 log("Parse Error - Expecting + in integer expression, got " + tokens[currentToken].tokenName);
+			 errorlog("Parse Error - Expecting + in integer expression, got " + tokens[currentToken].tokenName);
 		}
 	  } 
 	  else if(match(["T_digit"], false, false)){
@@ -824,7 +829,7 @@ function parseIntExpr(){
 	  }
   }
   else{
-	  log("Parse Error - Expecting digit to begin integer expression, got " + tokens[currentToken].tokenName);
+	  errorlog("Parse Error - Expecting digit to begin integer expression, got " + tokens[currentToken].tokenName);
   }
   CST.backtrack();
 }
@@ -838,11 +843,11 @@ function parseStringExpr(){
 		log("String Expression");
 	  }
 	  else{
-		log("Parse Error - Unterminated string literal");  
+		errorlog("Parse Error - Unterminated string literal");  
 	  }
   }
   else{
-	  log("Parse Error - Expected \" to begin string, got " + tokens[currentToken].tokenName);  
+	  errorlog("Parse Error - Expected \" to begin string, got " + tokens[currentToken].tokenName);  
   }
   CST.backtrack();
 }
@@ -859,11 +864,11 @@ function parseBooleanExpr(){
 			  log("Boolean Expression");
 		  }
 		  else{
-			  log("Parse Error - Expected ')' to close boolean expression, got " + tokens[currentToken].tokenName);
+			  errorlog("Parse Error - Expected ')' to close boolean expression, got " + tokens[currentToken].tokenName);
 		  }
 	  }
 	  else{
-		  log("Parse Error - Missing boolean operator like == or !=, got instead " + tokens[currentToken].tokenName);
+		  errorlog("Parse Error - Missing boolean operator like == or !=, got instead " + tokens[currentToken].tokenName);
 	  }
 	  
   }
@@ -873,7 +878,7 @@ function parseBooleanExpr(){
   }
   
   else{
-	  log("Parse Error - Expected boolean expression, got " + tokens[currentToken].tokenName);
+	  errorlog("Parse Error - Expected boolean expression, got " + tokens[currentToken].tokenName);
   }
    CST.backtrack();
 }
@@ -899,7 +904,7 @@ function parseID(){
 	  log("ID");
   }
   else{
-	  log("Parse Error - Expected an ID a-z, got " + tokens[currentToken].tokenName);
+	  errorlog("Parse Error - Expected an ID a-z, got " + tokens[currentToken].tokenName);
   }
   CST.backtrack();
 }
@@ -932,10 +937,10 @@ function log(toAdd: String){
    }
 }
 
-function errorLog(toAdd: String){
+function errorlog(toAdd: String){
 	logString += "<span style='color:red'>" + "Error: " + toAdd + "</span><br />"; //change to error div - does not continue to compile. & machine code div shows "not generated"
 	//end compile
-	if(typeof document.getElementById('machine-code') !== "undefined"){
+	if(document.getElementById('machine-code') !== null){
 		document.getElementById('machine-code').id = 'error-log';
 	} //no more output will occur
 	 document.getElementById('hex-code').innerHTML = "Machine Code was not generated due to an error, see logger for details.";
@@ -1262,7 +1267,7 @@ function scopeAndTypeCheck(root: ASTNode){
 	//Add new vars to the scope
 	else if(root.nodeName === "VariableDeclaration"){
 		if(currentScope.find(root.children[1])){
-			log("Semantic Analysis Warning - Variable " + root.children[1].nodeVal + " was redeclared on line " + root.children[1].lineNumber); //errorlog() to end compilation
+			errorlog("Semantic Analysis Warning - Variable " + root.children[1].nodeVal + " was redeclared on line " + root.children[1].lineNumber); //errorlog() to end compilation
 		}
 		else{
 			currentScope.addVariable(root.children[1], root.children[0]);
@@ -1294,7 +1299,7 @@ function scopeAndTypeCheck(root: ASTNode){
 				}
 			}
 			if(!isFound){
-				log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
+				errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
 			}
 			else{
 				root.children[0].isUsed = true;
@@ -1319,10 +1324,10 @@ function scopeAndTypeCheck(root: ASTNode){
 		//check if type is correct
 		//check if a = b; a and b are same type
 		if(otherType !== "" && type !== otherType){
-		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + otherType + " on line " + root.children[0].lineNumber);	
+		errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + otherType + " on line " + root.children[0].lineNumber);	
 		}
 		else if(otherType === "" && type !== root.children[1].nodeType){
-		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + root.children[1].nodeType + " on line " + root.children[0].lineNumber);
+		errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + root.children[1].nodeType + " on line " + root.children[0].lineNumber);
 		}
 	}
 	//Check Output for scope
@@ -1347,7 +1352,7 @@ function scopeAndTypeCheck(root: ASTNode){
 				}
 			}
 			if(!isFound){
-				log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
+				errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
 			}
 			else{
 				root.children[0].isUsed = true;
@@ -1389,7 +1394,7 @@ function scopeAndTypeCheck(root: ASTNode){
 				}
 			}
 			if(!isFound){
-				log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
+				errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
 			}
 			else{
 				root.children[0].isUsed = true;
@@ -1414,10 +1419,10 @@ function scopeAndTypeCheck(root: ASTNode){
 		//check if type is correct
 		//check if a = b; a and b are same type
 		if(otherType !== "" && type !== otherType){
-		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to type " + otherType + " on line " + root.children[0].lineNumber);	
+		errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to type " + otherType + " on line " + root.children[0].lineNumber);	
 		}
 		else if(otherType === "" && type !== root.children[1].nodeType){
-		log("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to type " + root.children[1].nodeType + " on line " + root.children[0].lineNumber);
+		errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to type " + root.children[1].nodeType + " on line " + root.children[0].lineNumber);
 		}
 		
 	}
@@ -1469,7 +1474,7 @@ function codeGeneration(){
   writeCodes(AST.root);
   
   machineCode[ncount] = "00"; //finish code
-  ncount++; //static space begins here
+  ncount++; //static space begins here, unless exceeds 256
   //use this to...
   //backpatch w/ tables
   for(var i = 0; i < staticTable.length; i++){
@@ -1502,7 +1507,7 @@ function codeGeneration(){
 			//First nybble is saved
 			firstNybble = nybbleCounter-8;
 			//Create a line with the nybble # and 8 nybbles of code
-			machineCodeStrings.push("<b>" + firstNybble.toString(16) + "</b>   ||"  + codeStr);
+			machineCodeStrings.push(codeStr); //firstNybble.toString(16)
 			//Reset for the next line
 			codeStr = "";
 		}
