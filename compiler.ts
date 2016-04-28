@@ -3,7 +3,7 @@
 * Compiler
 * CMPT 432
 */
-
+ 
 //Ensure .js is working. Also makes things prettier.
 document.getElementById('footer').style.color = "blue";
 
@@ -651,9 +651,12 @@ function parse(){
    //semanticAnalysis(CST);
 }
 
+var notError = true;
+
 //Ensure a program contains a block and ends with an EOF.
 //Continue to read in programs as long as there are more tokens after EOF.
 function parseProgram(){
+  notError = true; //no errors... yet.
   //var CST = new ConcreteSyntaxTree(null, null);
   CST.addBranchNode("Program");
   parseBlock();
@@ -932,7 +935,7 @@ function match(kinds: String[], noConsume: boolean, lookahead: boolean){
 
 //Log information on the compilation process to the user
 function log(toAdd: String){
-   if(verboseMode){
+   if(verboseMode && notError){
       logString += toAdd + "<br />";
    }
 }
@@ -944,6 +947,7 @@ function errorlog(toAdd: String){
 		document.getElementById('machine-code').id = 'error-log';
 	} //no more output will occur
 	 document.getElementById('hex-code').innerHTML = "Machine Code was not generated due to an error, see logger for details.";
+	 notError = false;
 }
 
 //Set verbose status and button
@@ -1441,6 +1445,12 @@ var machineCode = [];
 //Contains 32 lines of 8 nybbles each
 var machineCodeStrings = [];
 
+//Static table
+var staticTable = [];
+
+//Jump Entries - track jumps
+var jumpTable = [];
+
 /* Final project */
 //Step 4 - Input: AST & symbol table, Output: Equivalent hex codes
 function codeGeneration(){
@@ -1448,7 +1458,11 @@ function codeGeneration(){
   //instruction selection
   //translate into hex/bin
   //traverse AST
-  
+  //initialize
+  machineCode = [];
+  machineCodeStrings = [];
+  ncount = 0;
+  heapcount = 255;
   //Empty code section
   document.getElementById('hex-code').innerHTML = "";
   //VariableDeclaration: A9 00 8D T0 XX
@@ -1477,10 +1491,22 @@ function codeGeneration(){
   ncount++; //static space begins here, unless exceeds 256
   //use this to...
   //backpatch w/ tables
+  
   for(var i = 0; i < staticTable.length; i++){
-	  staticTable[i].setAddress(ncount.toString(16));
-	  //replace all instances
-	  ncount++;
+			  staticTable[i].setAddress(ncount.toString(16));
+			  ncount++;
+  }
+		  
+  for(var y = 0; y < 257; y++){
+	  if(y !== 256){
+		  var memLoc = machineCode[y]+machineCode[y+1];
+		  for(var j = 0; j < staticTable.length; j++){
+			  if(memLoc === staticTable[j].temp){
+				  machineCode[y] = staticTable[j].address;
+				  machineCode[y+1] = "00";
+			  }
+		  }
+	  }
   }
   
   for(var i = 0; i < jumpTable.length; i++){
@@ -1525,10 +1551,10 @@ var ncount = 0;
 var heapcount = 255;
 
 //Static Entries - track static variables
-var staticTable = [];
+staticTable = [];
 
 //Jump Entries - track jumps
-var jumpTable = [];
+jumpTable = [];
 
 function writeCodes(root: ASTNode){
 	if(root.nodeName === "Block"){
@@ -1548,7 +1574,7 @@ function writeCodes(root: ASTNode){
 		ncount++;
 		machineCode[ncount] = "XX"; //extra address space
 		ncount++;
-		staticTable.push(new StaticTableEntry("T0", root.children[1].nodeVal, 0, ""));
+		staticTable.push(new StaticTableEntry("T0XX", root.children[1].nodeVal, 0, ""));
 	}
 	else if(root.nodeName === "Assignment"){
 		machineCode[ncount] = "A9"; //load the accumulator
