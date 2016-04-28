@@ -922,7 +922,7 @@ function log(toAdd: String){
 }
 
 function errorLog(toAdd: String){
-	logString += "<span style='color:red'>" + toAdd + "</span><br />";
+	logString += "<span style='color:red'>" + toAdd + "</span><br />"; //change to error div - does not continue to compile. & machine code div shows "not generated"
 	//end compile
 }
 

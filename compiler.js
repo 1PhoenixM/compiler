@@ -899,7 +899,7 @@ function log(toAdd) {
     }
 }
 function errorLog(toAdd) {
-    logString += "<span style='color:red'>" + toAdd + "</span><br />";
+    logString += "<span style='color:red'>" + toAdd + "</span><br />"; //change to error div - does not continue to compile. & machine code div shows "not generated"
     //end compile
 }
 //Set verbose status and button
