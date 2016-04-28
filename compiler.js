@@ -913,6 +913,7 @@ function errorLog(toAdd) {
     if (typeof document.getElementById('machine-code') !== "undefined") {
         document.getElementById('machine-code').id = 'error-log';
     } //no more output will occur
+    document.getElementById('hex-code').innerHTML = "Machine Code was not generated due to an error, see logger for details.";
 }
 //Set verbose status and button
 function verboseToggle() {
