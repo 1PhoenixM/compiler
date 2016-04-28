@@ -466,11 +466,22 @@ var stringDFA = {
 	's4': { 'accept': 'T_space' }
 };
 
+
+function compile(){
+	if(typeof document.getElementById('error-log') !== "undefined"){
+		document.getElementById('error-log').innerHTML = "";
+		document.getElementById('error-log').id = 'machine-code';
+	}
+	lex();
+}
+
 //Step 1
 //Lexical analysis: Constructs tokens and filters whitespace and bogus characters.
 //Takes in source code string, outputs array of tokens.
-function lex(sourceCode: string){
-	
+function lex(){
+  //Get the source code.	
+  var sourceCode = (<HTMLInputElement>document.getElementById('source-code')).value;
+  
   //Turn the source code into tokens.
   tokens = getTokenStream(sourceCode);
   
@@ -922,8 +933,11 @@ function log(toAdd: String){
 }
 
 function errorLog(toAdd: String){
-	logString += "<span style='color:red'>" + toAdd + "</span><br />"; //change to error div - does not continue to compile. & machine code div shows "not generated"
+	logString += "<span style='color:red'>" + "Error: " + toAdd + "</span><br />"; //change to error div - does not continue to compile. & machine code div shows "not generated"
 	//end compile
+	if(typeof document.getElementById('machine-code') !== "undefined"){
+		document.getElementById('machine-code').id = 'error-log';
+	} //no more output will occur
 }
 
 //Set verbose status and button
@@ -932,13 +946,13 @@ function verboseToggle(){
 		verboseMode = false;
 		document.getElementById('verbose').style["background-color"] = 'grey';
 		document.getElementById('verbose').innerHTML = 'Verbose OFF';
-		lex((<HTMLInputElement>document.getElementById('source-code')).value); //compile again with verbose off
+		compile(); //compile again with verbose off
 	}
 	else{
 		verboseMode = true;
 		document.getElementById('verbose').style["background-color"] = 'green';
 		document.getElementById('verbose').innerHTML = 'Verbose ON';
-		lex((<HTMLInputElement>document.getElementById('source-code')).value); //compile again with verbose on
+		compile(); //compile again with verbose on
 	}
 }
 
