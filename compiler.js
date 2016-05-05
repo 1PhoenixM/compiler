@@ -1093,8 +1093,6 @@ function buildAST(root) {
                         AST.addLeafNode("RightVal", root.children[i].children[1].children[1].children[0].nodeVal, true, root.children[i].children[1].children[1].children[0].lineNumber);
                     }
                     AST.backtrack();
-                    AST.addBranchNode("Block");
-                    AST.backtrack();
                 }
                 else if (ASTNodes[root.children[i].nodeName] === "Add") {
                     //do Add subtree routine
@@ -1347,7 +1345,7 @@ function codeGeneration() {
     machineCodeStrings = [];
     ncount = 0;
     heapcount = 255;
-    staticcount = 0;
+    jumpcount = 0;
     //Empty code section
     document.getElementById('hex-code').innerHTML = "";
     //VariableDeclaration: A9 00 8D T0 XX
@@ -1375,6 +1373,9 @@ function codeGeneration() {
     //backpatch w/ tables
     for (var i = 0; i < staticTable.length; i++) {
         staticTable[i].setAddress(ncount.toString(16));
+        if (ncount.toString(16).length === 1) {
+            staticTable[i].setAddress("0" + ncount.toString(16));
+        }
         ncount++;
     }
     for (var y = 0; y < 257; y++) {
@@ -1384,6 +1385,14 @@ function codeGeneration() {
                 if (memLoc === staticTable[j].temp) {
                     machineCode[y] = staticTable[j].address;
                     machineCode[y + 1] = "00";
+                }
+            }
+            for (var k = 0; k < jumpTable.length; k++) {
+                if (machineCode[y] === jumpTable[k].temp) {
+                    if (jumpTable[k].distance.toString(16).length === 1) {
+                        jumpTable[k].setDistance("0" + jumpTable[k].distance.toString(16));
+                    }
+                    machineCode[y] = jumpTable[k].distance.toString(16);
                 }
             }
         }
@@ -1420,8 +1429,8 @@ function codeGeneration() {
 var ncount = 0;
 //Keeps track of the heap space
 var heapcount = 255;
-//Keeps track of how many static variables there are
-var staticcount = 0;
+//tracks jump distance
+var jumpcount = 0;
 //Static Entries - track static variables
 staticTable = [];
 //Jump Entries - track jumps
@@ -1525,16 +1534,19 @@ function writeCodes(root) {
                 existingVar = staticTable[i].temp.substring(0, 2);
             }
         }
+        //what if integer comparison?
         machineCode[ncount] = existingVar; //this memory location
         ncount++;
         machineCode[ncount] = "XX"; //extra address space
         ncount++;
         machineCode[ncount] = "D0"; //check z flag and decide to jump or not
         ncount++;
-        machineCode[ncount] = "J0"; //jump this many bytes
+        machineCode[ncount] = "J" + jumpTable.length; //jump this many bytes
         ncount++;
-        jumpTable.push(new JumpTableEntry("J0", ""));
+        jumpcount = ncount;
+        //jumpTable.push(new JumpTableEntry("J" + jumpTable.length, ""));
         writeCodes(root.children[1]); //write the block
+        jumpTable.push(new JumpTableEntry("J" + jumpTable.length, "" + (ncount - jumpcount)));
     }
 }
 //Left:
@@ -1544,6 +1556,7 @@ function writeCodes(root) {
 //Semantic analysis undefined errors and line numbers
 //Add in AST
 //Adding, strings, and if/while in codegen
-//Track multiple vars in codegen
+//Track multiple vars in codegen - same name, different scope. different var
+//static space increments between programs
 //Check over grammar
 //Testing 
