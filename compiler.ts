@@ -1463,6 +1463,7 @@ function codeGeneration(){
   machineCodeStrings = [];
   ncount = 0;
   heapcount = 255;
+  staticcount = 0;
   //Empty code section
   document.getElementById('hex-code').innerHTML = "";
   //VariableDeclaration: A9 00 8D T0 XX
@@ -1550,6 +1551,9 @@ var ncount = 0;
 //Keeps track of the heap space
 var heapcount = 255;
 
+//Keeps track of how many static variables there are
+var staticcount = 0;
+
 //Static Entries - track static variables
 staticTable = [];
 
@@ -1570,11 +1574,11 @@ function writeCodes(root: ASTNode){
 		ncount++;
 		machineCode[ncount] = "8D"; //save 00
 		ncount++;
-		machineCode[ncount] = "T0"; //at this memory location for the new variable
+		machineCode[ncount] = "T" + staticTable.length; //at this memory location for the new variable
 		ncount++;
 		machineCode[ncount] = "XX"; //extra address space
 		ncount++;
-		staticTable.push(new StaticTableEntry("T0XX", root.children[1].nodeVal, 0, ""));
+		staticTable.push(new StaticTableEntry("T" + staticTable.length + "XX", root.children[1].nodeVal, 0, ""));
 	}
 	else if(root.nodeName === "Assignment"){
 		machineCode[ncount] = "A9"; //load the accumulator
@@ -1603,7 +1607,13 @@ function writeCodes(root: ASTNode){
 		ncount++;
 		machineCode[ncount] = "8D"; //save the assigned value
 		ncount++;
-		machineCode[ncount] = "T0"; //in the variable's memory location
+		var existingVar = "00";
+		for(var i = 0; i < staticTable.length; i++){
+			if(staticTable[i].variable === root.children[0].nodeVal){ //check scope here
+				existingVar = staticTable[i].temp.substring(0,2);
+			}
+		}
+		machineCode[ncount] = existingVar; //in the variable's memory location
 		ncount++;
 		machineCode[ncount] = "XX"; //extra address space
 		ncount++;
@@ -1611,7 +1621,13 @@ function writeCodes(root: ASTNode){
 	else if(root.nodeName === "Output"){
 		machineCode[ncount] = "AC"; //load the y register
 		ncount++;
-		machineCode[ncount] = "T0"; //from this memory location
+		var existingVar = "00";
+		for(var i = 0; i < staticTable.length; i++){
+			if(staticTable[i].variable === root.children[0].nodeVal){ //check scope here
+				existingVar = staticTable[i].temp.substring(0,2);
+			}
+		}
+		machineCode[ncount] = existingVar; //from this memory location
 		ncount++;
 		machineCode[ncount] = "XX"; //extra address space
 		ncount++;
@@ -1625,13 +1641,25 @@ function writeCodes(root: ASTNode){
 	else if(root.nodeName === "If" || root.nodeName === "While"){
 		machineCode[ncount] = "AE"; //load the y register?
 		ncount++;
-		machineCode[ncount] = "T0"; //from this memory location
+		var existingVar = "00";
+		for(var i = 0; i < staticTable.length; i++){
+			if(staticTable[i].variable === root.children[0].children[0].nodeVal){ //check scope here
+				existingVar = staticTable[i].temp.substring(0,2);
+			}
+		}
+		machineCode[ncount] = existingVar; //from this memory location
 		ncount++;
 		machineCode[ncount] = "XX"; //extra address space
 		ncount++;
 		machineCode[ncount] = "EC"; //compare to and set z flag
 		ncount++;
-		machineCode[ncount] = "T1"; //this memory location
+		var existingVar = "00";
+		for(var i = 0; i < staticTable.length; i++){
+			if(staticTable[i].variable === root.children[0].children[1].nodeVal){ //check scope here
+				existingVar = staticTable[i].temp.substring(0,2);
+			}
+		}
+		machineCode[ncount] = existingVar; //this memory location
 		ncount++;
 		machineCode[ncount] = "XX"; //extra address space
 		ncount++;
@@ -1643,3 +1671,15 @@ function writeCodes(root: ASTNode){
 		writeCodes(root.children[1]); //write the block
 	}
 }
+
+//Left:
+//Jump distance backpatching
+//Project 2 errors/nonerrors
+//Not generating code when error
+//Semantic analysis undefined errors and line numbers
+//Add in AST
+//Adding, strings, and if/while in codegen
+//Track multiple vars in codegen - same name, different scope. different var
+
+//Check over grammar
+//Testing
