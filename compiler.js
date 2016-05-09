@@ -142,7 +142,7 @@ var AbstractSyntaxTree = (function () {
     ;
     //Adds an AST leaf node
     AbstractSyntaxTree.prototype.addLeafNode = function (nodeName, nodeVal, setType, lineNumber) {
-        var n = new ASTLeafNode(nodeName, nodeVal, setType, lineNumber, false, null, [], false);
+        var n = new ASTLeafNode(nodeName, nodeVal, setType, lineNumber, false, null, [], false, 0);
         n.parent = this.current;
         n.parent.children.push(n);
         activeValue = n;
@@ -200,7 +200,7 @@ var ASTBranchNode = (function (_super) {
 //The abstract syntax tree leaf node class. Each represents a type, value, or variable in the program
 var ASTLeafNode = (function (_super) {
     __extends(ASTLeafNode, _super);
-    function ASTLeafNode(nodeName, nodeVal, nodeType, lineNumber, isUsed, parent, children, visited) {
+    function ASTLeafNode(nodeName, nodeVal, nodeType, lineNumber, isUsed, parent, children, visited, scope) {
         _super.call(this, nodeName, parent, children, visited);
         this.nodeName = nodeName;
         this.nodeVal = nodeVal;
@@ -210,10 +210,12 @@ var ASTLeafNode = (function (_super) {
         this.parent = parent;
         this.children = children;
         this.visited = visited;
+        this.scope = scope;
         this.nodeVal = nodeVal;
         this.nodeType = nodeType;
         this.lineNumber = lineNumber;
         this.isUsed = isUsed;
+        this.scope = scope;
     }
     return ASTLeafNode;
 })(ASTNode);
@@ -1023,6 +1025,8 @@ function buildAST(root) {
                 else if (root.nodeName === "StringExpression") {
                     if (activeValue !== null) {
                         activeValue.nodeType = "string";
+                        console.log(joinString(root, ""));
+                        activeValue.nodeVal = joinString(root, "");
                     }
                 }
                 else if (root.nodeName === "BooleanExpression") {
@@ -1113,6 +1117,20 @@ function buildAST(root) {
         return;
     }
 }
+//unify the strings from CST into AST
+function joinString(root, stringVal) {
+    for (var i = 0; i < root.children.length; i++) {
+        if (typeof root.children[i].nodeVal !== "undefined") {
+            if (root.children[i].nodeVal !== '"') {
+                stringVal += root.children[i].nodeVal;
+            }
+        }
+        if (root.children[i].nodeName === "CharList") {
+            stringVal = joinString(root.children[i], stringVal);
+        }
+    }
+    return stringVal;
+}
 //If an int expression contains an ID, such as in 1+2+3+a, this finds it
 function findIDInAdd(intExpr) {
     if (intExpr.nodeName === "IntegerExpression") {
@@ -1182,6 +1200,7 @@ function scopeAndTypeCheck(root) {
         }
     }
     else if (root.nodeName === "VariableDeclaration") {
+        root.children[1].scope = currentScope.nodeVal;
         if (currentScope.find(root.children[1])) {
             errorlog("Semantic Analysis Warning - Variable " + root.children[1].nodeVal + " was redeclared on line " + root.children[1].lineNumber); //errorlog() to end compilation
         }
@@ -1190,12 +1209,15 @@ function scopeAndTypeCheck(root) {
         }
     }
     else if (root.nodeName === "Assignment") {
+        root.children[1].scope = currentScope.nodeVal;
+        root.children[0].scope = currentScope.nodeVal;
         var isFound = false;
         var parentType = "";
         //check if var exists in current scope in symbol table - and parent scope, if not
         if (root.children[0].nodeName === "LeftVal") {
             isFound = currentScope.find(root.children[0]);
         }
+        //join string into one node
         if (!isFound) {
             if (currentScope.parent !== null) {
                 var searchScope = currentScope.parent;
@@ -1242,6 +1264,7 @@ function scopeAndTypeCheck(root) {
         }
     }
     else if (root.nodeName === "Output") {
+        root.children[0].scope = currentScope.nodeVal;
         var isFound = false;
         //check if var exists in current scope in symbol table - and parent scope, if not
         if (root.children[0].nodeName === "OutputVal") {
@@ -1267,10 +1290,14 @@ function scopeAndTypeCheck(root) {
         }
     }
     else if (root.nodeName === "If" || root.nodeName === "While") {
+        root.children[1].scope = currentScope.nodeVal;
+        root.children[0].scope = currentScope.nodeVal;
         scopeAndTypeCheck(root.children[0]); //check test
         scopeAndTypeCheck(root.children[1]); //check block
     }
     else if (root.nodeName === "CompareTest") {
+        root.children[0].scope = currentScope.nodeVal;
+        root.children[1].scope = currentScope.nodeVal;
         var isFound = false;
         var parentType = "";
         //check if var exists in current scope in symbol table - and parent scope, if not
@@ -1325,9 +1352,9 @@ function scopeAndTypeCheck(root) {
     else {
     }
 }
-//Contains 256 nybbles of machine code
+//Contains 256 bytes of machine code
 var machineCode = [];
-//Contains 32 lines of 8 nybbles each
+//Contains 32 lines of 8 bytes each
 var machineCodeStrings = [];
 //Static table
 var staticTable = [];
@@ -1361,7 +1388,7 @@ function codeGeneration() {
     //Runtime image consist of code in hex, static space where vars are, and the rest is heap space where strings can be. Unused heap space should be 00, to fill from 00 - FF in the address space, creating an executable of 256 B, fixed size
     //Static table, jump table, backpatching to replace correct references once known after traversing the code
     //Instruction format, hex format
-    //256 nybbles of 00 in the array
+    //256 bytes of 00 in the array
     for (var b = 0; b < 257; b++) {
         machineCode.push("00");
     }
@@ -1389,33 +1416,34 @@ function codeGeneration() {
             }
             for (var k = 0; k < jumpTable.length; k++) {
                 if (machineCode[y] === jumpTable[k].temp) {
-                    if (jumpTable[k].distance.toString(16).length === 1) {
-                        jumpTable[k].setDistance("0" + jumpTable[k].distance.toString(16));
+                    jumpTable[k].setDistance(jumpTable[k].distance);
+                    if (jumpTable[k].distance.length === 1) {
+                        jumpTable[k].setDistance("0" + jumpTable[k].distance);
                     }
-                    machineCode[y] = jumpTable[k].distance.toString(16);
+                    machineCode[y] = jumpTable[k].distance;
                 }
             }
         }
     }
     for (var i = 0; i < jumpTable.length; i++) {
     }
-    //One line of 8 nybbles
+    //One line of 8 bytes
     var codeStr = "";
-    //Keeps track of nybbles
-    var nybbleCounter = 0;
-    //Holds onto first nybble in the line
-    var firstNybble = 0;
-    //For each nybble...
+    //Keeps track of bytes
+    var byteCounter = 0;
+    //Holds onto first byte in the line
+    var firstbyte = 0;
+    //For each byte...
     for (var b = 0; b < 257; b++) {
         //Put in a line and increment counter
         codeStr += " " + machineCode[b];
-        nybbleCounter++;
+        byteCounter++;
         //When multiple of 8 reached...
-        if (nybbleCounter % 8 === 0) {
-            //First nybble is saved
-            firstNybble = nybbleCounter - 8;
-            //Create a line with the nybble # and 8 nybbles of code
-            machineCodeStrings.push(codeStr); //firstNybble.toString(16)
+        if (byteCounter % 8 === 0) {
+            //First byte is saved
+            firstbyte = byteCounter - 8;
+            //Create a line with the byte # and 8 bytes of code
+            machineCodeStrings.push(codeStr); //firstbyte.toString(16)
             //Reset for the next line
             codeStr = "";
         }
@@ -1425,7 +1453,7 @@ function codeGeneration() {
         document.getElementById('hex-code').innerHTML += machineCodeStrings[e] + "<br />";
     }
 }
-//Keeps track of which nybble to write next
+//Keeps track of which byte to write next
 var ncount = 0;
 //Keeps track of the heap space
 var heapcount = 255;
@@ -1436,6 +1464,9 @@ staticTable = [];
 //Jump Entries - track jumps
 jumpTable = [];
 function writeCodes(root) {
+    if (ncount >= 256) {
+        errorlog("Code Generation Error: The generated code image is too large. Maximum size: 256 bytes of code. Reached: " + root.nodeName);
+    }
     if (root.nodeName === "Block") {
         //Write codes for all children
         for (var i = 0; i < root.children.length; i++) {
@@ -1453,7 +1484,7 @@ function writeCodes(root) {
         ncount++;
         machineCode[ncount] = "XX"; //extra address space
         ncount++;
-        staticTable.push(new StaticTableEntry("T" + staticTable.length + "XX", root.children[1].nodeVal, 0, ""));
+        staticTable.push(new StaticTableEntry("T" + staticTable.length + "XX", root.children[1].nodeVal, root.children[1].scope, ""));
     }
     else if (root.nodeName === "Assignment") {
         machineCode[ncount] = "A9"; //load the accumulator
@@ -1463,9 +1494,15 @@ function writeCodes(root) {
             machineCode[heapcount] = "00";
             heapcount--;
             for (var i = 0; i < root.children[1].nodeVal.length; i++) {
-                machineCode[heapcount] = root.children[1].nodeVal.charCodeAt(i);
+                //machineCode[heapcount] = root.children[1].nodeVal.charCodeAt(i).toString(16);
                 heapcount--;
             }
+            var tempheapcount = heapcount + 1;
+            for (var i = 0; i < root.children[1].nodeVal.length; i++) {
+                machineCode[tempheapcount] = root.children[1].nodeVal.charCodeAt(i).toString(16);
+                tempheapcount++;
+            }
+            tempheapcount = 0;
             machineCode[ncount] = (heapcount + 1).toString(16); //static pointer where string begins
         }
         else if (root.children[1].nodeType === "boolean") {
@@ -1484,7 +1521,7 @@ function writeCodes(root) {
         ncount++;
         var existingVar = "00";
         for (var i = 0; i < staticTable.length; i++) {
-            if (staticTable[i].variable === root.children[0].nodeVal) {
+            if (staticTable[i].variable === root.children[0].nodeVal && staticTable[i].scope <= root.children[0].scope) {
                 existingVar = staticTable[i].temp.substring(0, 2);
             }
         }
@@ -1498,7 +1535,7 @@ function writeCodes(root) {
         ncount++;
         var existingVar = "00";
         for (var i = 0; i < staticTable.length; i++) {
-            if (staticTable[i].variable === root.children[0].nodeVal) {
+            if (staticTable[i].variable === root.children[0].nodeVal && staticTable[i].scope <= root.children[0].scope) {
                 existingVar = staticTable[i].temp.substring(0, 2);
             }
         }
@@ -1508,17 +1545,26 @@ function writeCodes(root) {
         ncount++;
         machineCode[ncount] = "A2"; //load the x register
         ncount++;
-        machineCode[ncount] = "01"; //system code for "print" for ints only
-        ncount++;
+        if (root.children[0].nodeType === "string") {
+            machineCode[ncount] = "02"; //system code for "print" string
+            ncount++;
+        }
+        else {
+            machineCode[ncount] = "01"; //system code for "print" int/bool
+            ncount++;
+        }
         machineCode[ncount] = "FF"; //system call
         ncount++;
     }
     else if (root.nodeName === "If" || root.nodeName === "While") {
+        if (root.nodeName === "While") {
+            var testbyte = ncount;
+        }
         machineCode[ncount] = "AE"; //load the y register?
         ncount++;
         var existingVar = "00";
         for (var i = 0; i < staticTable.length; i++) {
-            if (staticTable[i].variable === root.children[0].children[0].nodeVal) {
+            if (staticTable[i].variable === root.children[0].children[0].nodeVal && staticTable[i].scope <= root.children[0].children[0].scope) {
                 existingVar = staticTable[i].temp.substring(0, 2);
             }
         }
@@ -1530,7 +1576,7 @@ function writeCodes(root) {
         ncount++;
         var existingVar = "00";
         for (var i = 0; i < staticTable.length; i++) {
-            if (staticTable[i].variable === root.children[0].children[1].nodeVal) {
+            if (staticTable[i].variable === root.children[0].children[1].nodeVal && staticTable[i].scope <= root.children[0].children[1].scope) {
                 existingVar = staticTable[i].temp.substring(0, 2);
             }
         }
@@ -1546,17 +1592,41 @@ function writeCodes(root) {
         jumpcount = ncount;
         //jumpTable.push(new JumpTableEntry("J" + jumpTable.length, ""));
         writeCodes(root.children[1]); //write the block
-        jumpTable.push(new JumpTableEntry("J" + jumpTable.length, "" + (ncount - jumpcount)));
+        var jumpDist = ncount - jumpcount;
+        jumpTable.push(new JumpTableEntry("J" + jumpTable.length, jumpDist.toString(16)));
+        if (root.nodeName === "While") {
+            machineCode[ncount] = "A2"; //load the y register?
+            ncount++;
+            machineCode[ncount] = "00";
+            ncount++;
+            //change to int comparison
+            //Unconditional jump - tests 0 == 1, which will always be false and it will jump back to the test, making a while loop
+            machineCode[ncount] = "EC"; //compare to and set z flag
+            ncount++;
+            machineCode[ncount] = "01";
+            ncount++;
+            machineCode[ncount] = "D0"; //check z flag and decide to jump or not
+            ncount++;
+            machineCode[ncount] = "J" + jumpTable.length; //jump this many bytes
+            ncount++;
+            jumpcount = ncount; //circle back to the condition to check again
+            var loopDist = (255 - ncount) + testbyte;
+            jumpTable.push(new JumpTableEntry("J" + jumpTable.length, loopDist.toString(16)));
+        }
+    }
+    else if (root.nodeName === "Add") {
     }
 }
-//Left:
-//Jump distance backpatching
+//Left: scope, adding, strings, while, add caps to hex
+//syscall: appropriate code for printing an int vs. string
+//different strings
+//Jump distance backpatching - done! except while
+//Add in AST, strings in AST
+//Adding, strings, and while in codegen - done if! also bools !=
+//Track multiple vars in codegen - same name, different scope. different var - done except scope
+//Not generating code when error - overwritten
+//static space increments between programs - probably a counter is not being reset
 //Project 2 errors/nonerrors
-//Not generating code when error
-//Semantic analysis undefined errors and line numbers
-//Add in AST
-//Adding, strings, and if/while in codegen
-//Track multiple vars in codegen - same name, different scope. different var
-//static space increments between programs
+//Semantic analysis undefined errors and line numbers //to fix: transfer CST node info in AST.addLeafNode() such as line number, etc
 //Check over grammar
 //Testing 
