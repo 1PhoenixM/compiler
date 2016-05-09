@@ -1669,18 +1669,53 @@ function writeCodes(root: ASTNode){
 		ncount++;
 	}
 	else if(root.nodeName === "Output"){
-		machineCode[ncount] = "AC"; //load the y register
-		ncount++;
 		var existingVar = "00";
 		for(var i = 0; i < staticTable.length; i++){
 			if(staticTable[i].variable === root.children[0].nodeVal && staticTable[i].scope <= root.children[0].scope){ //check scope here
 				existingVar = staticTable[i].temp.substring(0,2);
 			}
 		}
-		machineCode[ncount] = existingVar; //from this memory location
-		ncount++;
-		machineCode[ncount] = "XX"; //extra address space
-		ncount++;
+		if(existingVar !== "00"){
+			machineCode[ncount] = "AC"; //load the y register
+			ncount++;
+			machineCode[ncount] = existingVar; //from this memory location
+			ncount++;
+			machineCode[ncount] = "XX"; //extra address space
+			ncount++;
+		}
+		else{
+			machineCode[ncount] = "A0"; //from this memory location
+			ncount++;
+			if(root.children[0].nodeType === "string"){ //stringexp
+			//have heap space pointer...
+			machineCode[heapcount] = "00";
+			heapcount--; 
+			for(var i = 0; i < root.children[0].nodeVal.length; i++){
+				//machineCode[heapcount] = root.children[1].nodeVal.charCodeAt(i).toString(16);
+				heapcount--;
+			}
+			var tempheapcount = heapcount+1;
+			for(var i = 0; i < root.children[0].nodeVal.length; i++){
+				machineCode[tempheapcount] = root.children[0].nodeVal.charCodeAt(i).toString(16);
+				tempheapcount++;
+			}
+			tempheapcount = 0;
+			machineCode[ncount] = (heapcount+1).toString(16); //static pointer where string begins
+			}
+			else if(root.children[0].nodeType === "boolean"){ //boolexp
+				if(root.children[0].nodeVal === "true"){
+					machineCode[ncount] = "01"; //true
+				}
+				else{
+					machineCode[ncount] = "00"; //false
+				}
+			}
+			else{ //intexp
+				machineCode[ncount] = "0" + root.children[0].nodeVal; //with the assigned value - may not work for added numbers
+			}
+			ncount++;
+		}
+		
 		machineCode[ncount] = "A2"; //load the x register
 		ncount++;
 		if(root.children[0].nodeType === "string"){
@@ -1731,26 +1766,32 @@ function writeCodes(root: ASTNode){
 		//jumpTable.push(new JumpTableEntry("J" + jumpTable.length, ""));
 		writeCodes(root.children[1]); //write the block
 		var jumpDist = ncount - jumpcount;
-		jumpTable.push(new JumpTableEntry("J" + jumpTable.length, jumpDist.toString(16)));
+		if(root.nodeName === "If"){
+			jumpTable.push(new JumpTableEntry("J" + jumpTable.length, jumpDist.toString(16)));
+		}
 		if(root.nodeName === "While"){
-			machineCode[ncount] = "A2"; //load the y register?
+			/*machineCode[ncount] = "A2"; //load the y register?
 			ncount++;
 			machineCode[ncount] = "00"; 
-			ncount++;
+			ncount++;*/
 			//change to int comparison
 			//Unconditional jump - tests 0 == 1, which will always be false and it will jump back to the test, making a while loop
 			
 			machineCode[ncount] = "EC"; //compare to and set z flag
 			ncount++;
-			machineCode[ncount] = "01"; 
+			machineCode[ncount] = "AA"; 
 			ncount++;
-			
+			machineCode[ncount] = "00"; 
+			ncount++;
 			machineCode[ncount] = "D0"; //check z flag and decide to jump or not
 			ncount++;
-			machineCode[ncount] = "J" + jumpTable.length; //jump this many bytes
+			var nextJump = jumpTable.length+1;
+			machineCode[ncount] = "J" + nextJump; //jump this many bytes
 			ncount++;
+			jumpDist = ncount - jumpcount;
+			jumpTable.push(new JumpTableEntry("J" + jumpTable.length, jumpDist.toString(16)));
 			jumpcount = ncount; //circle back to the condition to check again
-			var loopDist = (255 - ncount) + testbyte;
+			var loopDist = (255 - ncount) + (testbyte+1);
 			jumpTable.push(new JumpTableEntry("J" + jumpTable.length, loopDist.toString(16)));
 		}
 	}
