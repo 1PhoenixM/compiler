@@ -1097,7 +1097,9 @@ function buildAST(root) {
         }
     }
     else {
-        return; //this is a value - no recursion needed
+        //return; //this is a value - no recursion needed
+        if (ASTNodes[root.nodeName] === "Add") {
+        }
     }
 }
 //Unify the strings from CST into AST
@@ -1661,5 +1663,5 @@ function writeCodes(root) {
     else if (root.nodeName === "Add") {
     }
 }
-//Adding, !=, bools, not gen code
+//Adding, !=, bools, not gen code when error
 //Some exp cases a == a, strings not error 

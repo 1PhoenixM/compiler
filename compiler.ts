@@ -1140,7 +1140,15 @@ function buildAST(root: CSTNode){
 		}
 	}
 	else{
-		return; //this is a value - no recursion needed
+		//return; //this is a value - no recursion needed
+		if(ASTNodes[root.nodeName] === "Add"){
+			//New Add tree
+			/*AST.addBranchNode(ASTNodes[root.nodeName]);
+			AST.addLeafNode("LeftVal", root.parent.children[0].nodeVal, true, root.parent.children[0].lineNumber);
+			buildAST(root.parent.children[2]);
+			//Backtrack
+			AST.backtrack();*/
+		}
 	}
 }
 
@@ -1768,8 +1776,12 @@ function writeCodes(root: ASTNode){
 	//If Add
 	else if(root.nodeName === "Add"){
 		//handled elsewhere
+		/*
+		machineCode[ncount] = "EE"; //add into accumulator
+		ncount++;
+		*/
 	}
 }
 
-//Adding, !=, bools, not gen code
+//Adding, !=, bools, not gen code when error
 //Some exp cases a == a, strings not error
