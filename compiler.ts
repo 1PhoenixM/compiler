@@ -1707,25 +1707,60 @@ function writeCodes(root: ASTNode){
 		if(root.nodeName === "While"){
 			var testbyte = ncount;
 		}
-		machineCode[ncount] = "AE"; //load register
-		ncount++;
-		//Search for variable
-		var existingVar = "00";
-		for(var i = 0; i < staticTable.length; i++){
-			if(staticTable[i].variable === root.children[0].children[0].nodeVal && staticTable[i].scope <= root.children[0].children[0].scope){ 
-				existingVar = staticTable[i].temp.substring(0,2);
+		if(root.children[0].children[1].nodeType === "ID"){
+			machineCode[ncount] = "AE"; //load register
+			ncount++;
+			//Search for variable
+			var existingVar = "00";
+			for(var i = 0; i < staticTable.length; i++){
+				if(staticTable[i].variable === root.children[0].children[1].nodeVal && staticTable[i].scope <= root.children[0].children[1].scope){ 
+					existingVar = staticTable[i].temp.substring(0,2);
+				}
+			}
+			machineCode[ncount] = existingVar; //from this memory location
+			ncount++;
+			machineCode[ncount] = "XX"; //extra address space
+			ncount++;
+		}
+		else{
+			machineCode[ncount] = "A2"; //extra address space
+			ncount++;
+			if(root.children[0].children[1].nodeType === "int"){
+				machineCode[ncount] = "0" + root.children[0].children[1].nodeVal; //extra address space
+				ncount++;
+			}
+			else if(root.children[0].children[1].nodeType === "boolean"){
+				if(root.children[0].children[1].nodeVal === "true"){
+					machineCode[ncount] = "01"; //true
+					ncount++;
+				}
+				else{
+					machineCode[ncount] = "00"; //false
+					ncount++;
+				}
+			}
+			else{
+				machineCode[heapcount] = "00";
+				heapcount--; 
+				for(var i = 0; i < root.children[0].nodeVal.length; i++){
+					heapcount--;
+				}
+				var tempheapcount = heapcount+1;
+				for(var i = 0; i < root.children[0].nodeVal.length; i++){
+					machineCode[tempheapcount] = root.children[0].nodeVal.charCodeAt(i).toString(16);
+					tempheapcount++;
+				}
+				tempheapcount = 0;
+				machineCode[ncount] = (heapcount+1).toString(16); //static pointer where string begins
+				ncount++;
 			}
 		}
-		machineCode[ncount] = existingVar; //from this memory location
-		ncount++;
-		machineCode[ncount] = "XX"; //extra address space
-		ncount++;
 		machineCode[ncount] = "EC"; //compare to and set z flag
 		ncount++;
 		//Search for another variable
 		var existingVar = "00";
 		for(var i = 0; i < staticTable.length; i++){
-			if(staticTable[i].variable === root.children[0].children[1].nodeVal && staticTable[i].scope <= root.children[0].children[1].scope){ //check scope here
+			if(staticTable[i].variable === root.children[0].children[0].nodeVal && staticTable[i].scope <= root.children[0].children[0].scope){ //check scope here
 				existingVar = staticTable[i].temp.substring(0,2);
 			}
 		}
