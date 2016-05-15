@@ -367,8 +367,8 @@ var DFA = {'s1' : {'+': 's2',
 		's11' : {'accept': 'T_digit'},
 		's12' : {'accept': 'T_openList'},
 		's13' : {'accept': 'T_closeList'},
-		's14' : {'accept': 'T_boolop'}, //==
-		's15' : {'accept': 'T_boolop'}, //!=
+		's14' : {'accept': 'T_EQboolop'}, //==
+		's15' : {'accept': 'T_NOTEQboolop'}, //(not)=
 		's21' : {'f': 's44', 'n': 's56', 'accept': 'T_char'}, //if or int
 		
 		's44' : {'accept': 'T_keywordIf'},
@@ -845,7 +845,7 @@ function parseBooleanExpr(){
   CST.addBranchNode("BooleanExpression");
   if(match(["T_openList"], false, false)){
 	  parseExpr();
-	  if(match(["T_boolop"], false, false)){
+	  if(match(["T_EQboolop","T_NOTEQboolop"], false, false)){
 		  parseExpr();
 	      if(match(["T_closeList"], false, false)){
 			  log("Boolean Expression");
@@ -967,7 +967,8 @@ var SymbolTableInstance = new SymbolTable(null, null);
 var ASTNodes = {
 	'T_intop': 'Add', //add tree
 	'PrintStatement': 'Output', //more abstract output tree
-	'T_boolop': 'CompareTest', //comparetest
+	'T_EQboolop': 'EqCompareTest', //EqCompareTest
+	'T_NOTEQboolop': 'NotEqCompareTest', //EqCompareTest
 	'T_boolTrue': 'BooleanTrue', //true
 	'T_boolFalse': 'BooleanFalse', //false
 	'Block': 'Block', //a block
@@ -1073,7 +1074,12 @@ function buildAST(root: CSTNode){
 					//RightVal - an Expression
 					if(root.children[i].children[2].children[0].nodeName === "IntegerExpression"){
 						if(root.children[i].children[2].children[0].children.length > 2 && root.children[i].children[2].children[0].children[1].nodeName === "T_intop"){
-							AST.addLeafNode("RightVal", findIDInAdd(root.children[i].children[2].children[0]), true, root.children[i].children[2].children[0].children[0].lineNumber);
+							if(findIDInAdd(root.children[i].children[2].children[0]) !== "?"){
+								AST.addLeafNode("RightVal", findIDInAdd(root.children[i].children[2].children[0]), true, root.children[i].children[2].children[0].children[0].lineNumber);
+							}
+							else{
+								AST.addLeafNode("RightVal", root.children[i].children[2].children[0].children[0].nodeVal, true, root.children[i].children[2].children[0].children[0].lineNumber);
+							}
 						}
 						else{
 							AST.addLeafNode("RightVal", root.children[i].children[2].children[0].children[0].nodeVal, true, root.children[i].children[2].children[0].children[0].lineNumber);
@@ -1104,8 +1110,13 @@ function buildAST(root: CSTNode){
 					/*!= vs ==*/
 					//New If or While node!
 					AST.addBranchNode(ASTNodes[root.children[i].nodeName]); 
-					//New CompareTest node!
-					AST.addBranchNode("CompareTest");
+					//New EqCompareTest node!
+					if(root.children[i].children[1].nodeName === "T_EQboolop"){
+						AST.addBranchNode("EqCompareTest");
+					}
+					else{
+						AST.addBranchNode("NotEqCompareTest");
+					}
 					
 					//Add left and right of comparison
 					if(root.children[i].children[1].children[1].children.length !== 0){
@@ -1120,7 +1131,7 @@ function buildAST(root: CSTNode){
 					//Backtrack up to If/While from Compare
 					AST.backtrack();
 					//The block containing the if/while code will be perceived as any other Block.
-					//It will go under the If/While node as a child, since we only backtracked once out of CompareTest.
+					//It will go under the If/While node as a child, since we only backtracked once out of EqCompareTest.
 				}
 				//Add subtree (not a statement)
 				else if(ASTNodes[root.children[i].nodeName] === "Add"){
@@ -1143,11 +1154,15 @@ function buildAST(root: CSTNode){
 		//return; //this is a value - no recursion needed
 		if(ASTNodes[root.nodeName] === "Add"){
 			//New Add tree
-			/*AST.addBranchNode(ASTNodes[root.nodeName]);
+			AST.addBranchNode(ASTNodes[root.nodeName]);
 			AST.addLeafNode("LeftVal", root.parent.children[0].nodeVal, true, root.parent.children[0].lineNumber);
-			buildAST(root.parent.children[2]);
+			buildAST(root.parent.children[2].children[0].children[0]);
 			//Backtrack
-			AST.backtrack();*/
+			AST.backtrack();
+		}
+		else if(root.nodeName === "T_digit"){
+			AST.addLeafNode("RightVal", root.parent.children[0].nodeVal, true, root.parent.children[0].lineNumber); //final digit in Add
+			AST.backtrack();
 		}
 	}
 }
@@ -1285,7 +1300,7 @@ function scopeAndTypeCheck(root: ASTNode){
 				}
 			}
 			//If still not found, it's undeclared.
-			if(!isFound){
+			if(!isFound && root.children[0].nodeType === "ID"){
 				errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
 			}
 			//If found, it has been used
@@ -1310,7 +1325,7 @@ function scopeAndTypeCheck(root: ASTNode){
 		}
 		
 		//Type errors - mismatch of Left and Right sides
-		if(otherType !== "" && type !== otherType){
+		if(otherType !== "" && type !== otherType && root.children[0].nodeType === "ID"){
 		errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be set to type " + otherType + " on line " + root.children[0].lineNumber);	
 		}
 		else if(otherType === "" && type !== root.children[1].nodeType){
@@ -1343,7 +1358,7 @@ function scopeAndTypeCheck(root: ASTNode){
 					
 				}
 			}
-			if(!isFound){
+			if(!isFound && root.children[0].nodeType === "ID"){
 				errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
 			}
 			else{
@@ -1361,8 +1376,8 @@ function scopeAndTypeCheck(root: ASTNode){
 		//could be eq, noteq, true, false
 		//(true) and (false)
 	}
-	//Check CompareTest for scope and type
-	else if(root.nodeName === "CompareTest"){
+	//Check EqCompareTest for scope and type
+	else if(root.nodeName === "EqCompareTest" || root.nodeName === "NotEqCompareTest"){
 		//Set scope of variables
 		root.children[0].scope = currentScope.nodeVal;
 		root.children[1].scope = currentScope.nodeVal;
@@ -1390,7 +1405,7 @@ function scopeAndTypeCheck(root: ASTNode){
 					}
 				}
 			}
-			if(!isFound){
+			if(!isFound && root.children[0].nodeType === "ID"){
 				errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is not found on line " + root.children[0].lineNumber);
 			}
 			else{
@@ -1411,7 +1426,7 @@ function scopeAndTypeCheck(root: ASTNode){
 		}
 		
 		//Type mismatches in comparability
-		if(otherType !== "" && type !== otherType){
+		if(otherType !== "" && type !== otherType && root.children[0].nodeType === "ID"){
 		errorlog("Semantic Analysis Error - Variable " + root.children[0].nodeVal + " is of type " + type + " and cannot be compared to type " + otherType + " on line " + root.children[0].lineNumber);	
 		}
 		else if(otherType === "" && type !== root.children[1].nodeType){
@@ -1621,7 +1636,44 @@ function writeCodes(root: ASTNode){
 		}
 		//If int...
 		else{ 
-			machineCode[ncount] = "0" + root.children[1].nodeVal; //works for 0-9
+			if(root.children[1].nodeName === "Add"){
+				machineCode[ncount] = "0" + root.children[1].children[0].nodeVal;
+				ncount++;
+				machineCode[ncount] = "6D"; //add into accumulator
+				ncount++;
+				machineCode[ncount] = "AA"; 
+				ncount++;
+				machineCode[ncount] = "00"; 
+				ncount++;
+				machineCode[ncount] = "8D"; 
+				ncount++;
+				machineCode[ncount] = "AA"; 
+				ncount++;
+				machineCode[ncount] = "00"; 
+				ncount++;
+				machineCode[ncount] = "A9"; 
+				ncount++;
+				machineCode[ncount] = "0" + root.children[1].children[1].nodeVal; 
+				ncount++;
+				machineCode[ncount] = "6D"; //add into accumulator
+				ncount++;
+				machineCode[ncount] = "AA"; 
+				ncount++;
+				machineCode[ncount] = "00"; 
+				ncount++;
+				machineCode[ncount] = "8D"; 
+				ncount++;
+				machineCode[ncount] = "AA"; 
+				ncount++;
+				machineCode[ncount] = "00"; 
+				ncount++;
+				if(root.children[1].children[1].nodeName === "Add"){
+					writeCodes(root.children[1].children[1]);
+				}
+			}
+			else{
+				machineCode[ncount] = "0" + root.children[1].nodeVal; //works for 0-9
+			}
 		}
 		ncount++;
 		machineCode[ncount] = "8D"; //save the assigned value
@@ -1780,7 +1832,12 @@ function writeCodes(root: ASTNode){
 		var jumpDist = ncount - jumpcount;
 		//New Jump Table entry & done, in the case of an If. Will simply evaluate this Jump once.
 		if(root.nodeName === "If"){
-			jumpTable.push(new JumpTableEntry("J" + jumpTable.length, jumpDist.toString(16)));
+			if(root.children[0].nodeName === "EqCompareTest"){
+				jumpTable.push(new JumpTableEntry("J" + jumpTable.length, jumpDist.toString(16)));
+			}
+			else{ //not equal
+				jumpTable.push(new JumpTableEntry("J" + jumpTable.length, "00"));
+			}
 		}
 		//If it's a While, we must loop.
 		if(root.nodeName === "While"){
@@ -1811,12 +1868,58 @@ function writeCodes(root: ASTNode){
 	//If Add
 	else if(root.nodeName === "Add"){
 		//handled elsewhere
-		/*
-		machineCode[ncount] = "EE"; //add into accumulator
-		ncount++;
-		*/
+				machineCode[ncount] = "A9"; 
+				ncount++;
+				machineCode[ncount] = "0" + root.children[0].nodeVal;
+				ncount++;
+				machineCode[ncount] = "6D"; //add into accumulator
+				ncount++;
+				machineCode[ncount] = "AA"; 
+				ncount++;
+				machineCode[ncount] = "00"; 
+				ncount++;
+				machineCode[ncount] = "8D"; 
+				ncount++;
+				machineCode[ncount] = "AA"; 
+				ncount++;
+				machineCode[ncount] = "00"; 
+				ncount++;
+				machineCode[ncount] = "A9"; 
+				ncount++;
+				machineCode[ncount] = "0" + root.children[1].nodeVal; 
+				ncount++;
+				machineCode[ncount] = "6D"; //add into accumulator
+				ncount++;
+				machineCode[ncount] = "AA"; 
+				ncount++;
+				machineCode[ncount] = "00"; 
+				ncount++;
+				machineCode[ncount] = "8D"; 
+				ncount++;
+				machineCode[ncount] = "AA"; 
+				ncount++;
+				machineCode[ncount] = "00"; 
+				ncount++;
+				machineCode[ncount] = "AD"; 
+				ncount++;
+				machineCode[ncount] = "AA"; 
+				ncount++;
+				machineCode[ncount] = "00"; 
+				ncount++;
+				machineCode[ncount] = "8D"; //save the assigned value
+				ncount++;
+				//Search in static table for the existing memory address - both name and scope must match
+				var existingVar = "00";
+				existingVar = staticTable[0].temp.substring(0,2);
+				machineCode[ncount] = existingVar; //in the variable's assigned memory location
+				ncount++;
+				machineCode[ncount] = "XX"; //extra address space
+				ncount++;
 	}
 }
 
-//Adding, !=, bools, not gen code when error
-//Some exp cases a == a, strings not error
+//Adding, !=,  1 == 1, bools, some scopes
+//test cases
+//strings not error - fixed
+//Some exp cases a == a - works
+//Not gen code when error - ?
